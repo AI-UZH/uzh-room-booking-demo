@@ -15,9 +15,10 @@ import type { Room } from "@/lib/rooms";
 interface CalendarViewProps {
   rooms: Room[];
   onSelectSlot: (room: Room, date: Date, time: string) => void;
+  onSelectRoom: (room: Room, date: Date) => void;
 }
 
-export function CalendarView({ rooms, onSelectSlot }: CalendarViewProps) {
+export function CalendarView({ rooms, onSelectSlot, onSelectRoom }: CalendarViewProps) {
   const [date, setDate] = useState<Date>(new Date());
   const [showAll, setShowAll] = useState(false);
   const key = dateKey(date);
@@ -120,11 +121,20 @@ export function CalendarView({ rooms, onSelectSlot }: CalendarViewProps) {
             visibleRooms.map((room) => (
               <tr key={room.id} className="border-b border-border last:border-0">
                 <td className="sticky left-0 z-10 min-w-44 bg-white px-3 py-2">
-                  <p className="text-sm font-medium leading-snug text-foreground">{room.name}</p>
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Users className="size-3" />
-                    {room.capacity}+ · {room.building}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onSelectRoom(room, date)}
+                    title={`View ${room.name} details`}
+                    className="text-left"
+                  >
+                    <p className="text-sm font-medium leading-snug text-foreground hover:text-[var(--uzh-blue)] hover:underline">
+                      {room.name}
+                    </p>
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Users className="size-3" />
+                      {room.capacity}+ · {room.building}
+                    </p>
+                  </button>
                 </td>
                 {TIME_SLOTS.map((time) => {
                   const booked = isSlotBooked(room.id, key, time);
@@ -156,8 +166,8 @@ export function CalendarView({ rooms, onSelectSlot }: CalendarViewProps) {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        Click an available (green) slot to open that room and start booking it for the selected
-        time.
+        Click a room&apos;s name for its full overview, or an available (green) slot to start
+        booking it for that time.
       </p>
     </div>
   );

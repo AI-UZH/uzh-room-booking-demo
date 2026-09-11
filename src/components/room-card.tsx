@@ -9,7 +9,8 @@ import type { Room } from "@/lib/rooms";
 
 interface RoomCardProps {
   room: Room;
-  availability: RoomAvailability;
+  /** Omit to hide the availability badge entirely (e.g. for external visitors). */
+  availability?: RoomAvailability;
   onSelect: (room: Room) => void;
 }
 
@@ -39,24 +40,26 @@ export function RoomCard({ room, availability, onSelect }: RoomCardProps) {
           <Users className="size-3.5" />
           {room.capacity}+
         </Badge>
-        <Badge
-          className={cn(
-            "absolute right-3 top-3 gap-1 shadow-sm",
-            availability.hasAvailability
-              ? "bg-[var(--uzh-green)]/90 text-[#1a2e00]"
-              : "bg-white/95 text-muted-foreground",
-          )}
-        >
-          <span
+        {availability && (
+          <Badge
             className={cn(
-              "size-1.5 rounded-full",
-              availability.hasAvailability ? "bg-[#1a2e00]" : "bg-muted-foreground",
+              "absolute right-3 top-3 gap-1 shadow-sm",
+              availability.hasAvailability
+                ? "bg-[var(--uzh-green)]/90 text-[#1a2e00]"
+                : "bg-white/95 text-muted-foreground",
             )}
-          />
-          {availability.hasAvailability
-            ? `Free from ${availability.nextFreeSlot}`
-            : "Fully booked"}
-        </Badge>
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                availability.hasAvailability ? "bg-[#1a2e00]" : "bg-muted-foreground",
+              )}
+            />
+            {availability.hasAvailability
+              ? `Free from ${availability.nextFreeSlot}`
+              : "Fully booked"}
+          </Badge>
+        )}
       </div>
       <div className="flex flex-col gap-2 p-4 pt-3">
         <div>

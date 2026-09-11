@@ -34,7 +34,11 @@ export default function Home() {
     return rooms.filter((room) => {
       if (capacity !== "all" && capacityBucket(room.capacity) !== capacity) return false;
       if (building !== "all" && room.building !== building) return false;
-      if (onlyAvailable && !getRoomAvailability(room.id, browseDateKey).hasAvailability) {
+      if (
+        role !== "external" &&
+        onlyAvailable &&
+        !getRoomAvailability(room.id, browseDateKey).hasAvailability
+      ) {
         return false;
       }
       const exact = Number(minAttendees);
@@ -53,11 +57,11 @@ export default function Home() {
       }
       return true;
     });
-  }, [capacity, building, search, minAttendees, onlyAvailable, browseDateKey]);
+  }, [capacity, building, search, minAttendees, onlyAvailable, browseDateKey, role]);
 
   const handleSelect = (room: Room) => {
     setSelectedRoom(room);
-    setPrefill({ date: browseDate });
+    setPrefill(role === "external" ? {} : { date: browseDate });
     setDialogOpen(true);
   };
 
@@ -67,9 +71,16 @@ export default function Home() {
     setDialogOpen(true);
   };
 
+  const handleSelectRoomFromCalendar = (room: Room, date: Date) => {
+    setSelectedRoom(room);
+    setPrefill({ date });
+    setDialogOpen(true);
+  };
+
   const handleRoleChange = (next: UserRole) => {
     setRole(next);
-    if (next === "external" && view === "bookings") setView("grid");
+    if (next === "external" && view !== "grid") setView("grid");
+    if (next === "admin") setView("bookings");
     toast(
       next === "external"
         ? "Viewing as an external visitor"
@@ -124,7 +135,7 @@ export default function Home() {
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TabsList>
               <TabsTrigger value="grid">Browse rooms</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              {role !== "external" && <TabsTrigger value="calendar">Calendar</TabsTrigger>}
               {role === "admin" && <TabsTrigger value="bookings">Bookings dashboard</TabsTrigger>}
             </TabsList>
           </div>
@@ -144,6 +155,7 @@ export default function Home() {
               onlyAvailable={onlyAvailable}
               onOnlyAvailableChange={setOnlyAvailable}
               resultCount={filteredRooms.length}
+              showAvailability={role !== "external"}
             />
 
             {filteredRooms.length === 0 ? (
@@ -151,7 +163,7 @@ export default function Home() {
                 <SearchX className="size-10 text-muted-foreground/50" />
                 <p className="text-sm font-medium text-foreground">No rooms match your filters</p>
                 <p className="text-sm text-muted-foreground">
-                  Try widening the capacity range, choosing a different date, or a different
+                  Try widening the capacity range{role !== "external" && ", choosing a different date,"} or a different
                   location.
                 </p>
               </div>
@@ -161,7 +173,9 @@ export default function Home() {
                   <RoomCard
                     key={room.id}
                     room={room}
-                    availability={getRoomAvailability(room.id, browseDateKey)}
+                    availability={
+                      role === "external" ? undefined : getRoomAvailability(room.id, browseDateKey)
+                    }
                     onSelect={handleSelect}
                   />
                 ))}
@@ -169,9 +183,15 @@ export default function Home() {
             )}
           </TabsContent>
 
-          <TabsContent value="calendar" className="mt-0">
-            <CalendarView rooms={rooms} onSelectSlot={handleSelectSlot} />
-          </TabsContent>
+          {role !== "external" && (
+            <TabsContent value="calendar" className="mt-0">
+              <CalendarView
+                rooms={rooms}
+                onSelectSlot={handleSelectSlot}
+                onSelectRoom={handleSelectRoomFromCalendar}
+              />
+            </TabsContent>
+          )}
 
           {role === "admin" && (
             <TabsContent value="bookings" className="mt-0">

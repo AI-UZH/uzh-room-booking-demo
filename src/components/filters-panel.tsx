@@ -41,6 +41,8 @@ interface FiltersPanelProps {
   onlyAvailable: boolean;
   onOnlyAvailableChange: (value: boolean) => void;
   resultCount: number;
+  /** Hide the date picker and availability toggle (e.g. for external visitors, who don't see availability). */
+  showAvailability?: boolean;
 }
 
 export function FiltersPanel({
@@ -57,6 +59,7 @@ export function FiltersPanel({
   onlyAvailable,
   onOnlyAvailableChange,
   resultCount,
+  showAvailability = true,
 }: FiltersPanelProps) {
   return (
     <div className="flex flex-col gap-4 border-b border-border pb-6">
@@ -97,23 +100,25 @@ export function FiltersPanel({
             </SelectContent>
           </Select>
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="h-9 w-full justify-start gap-2 font-normal sm:w-48">
-                <CalendarIcon className="size-4 text-muted-foreground" />
-                {format(date, "EEE, d MMM")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={(d) => d && onDateChange(d)}
-                disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
-                autoFocus
-              />
-            </PopoverContent>
-          </Popover>
+          {showAvailability && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-9 w-full justify-start gap-2 font-normal sm:w-48">
+                  <CalendarIcon className="size-4 text-muted-foreground" />
+                  {format(date, "EEE, d MMM")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(d) => d && onDateChange(d)}
+                  disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+                  autoFocus
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
 
@@ -140,16 +145,18 @@ export function FiltersPanel({
             ))}
           </div>
 
-          <div className="flex items-center gap-2 border-l border-border pl-5">
-            <Switch
-              id="only-available"
-              checked={onlyAvailable}
-              onCheckedChange={onOnlyAvailableChange}
-            />
-            <Label htmlFor="only-available" className="text-sm font-medium text-foreground">
-              Available on this date
-            </Label>
-          </div>
+          {showAvailability && (
+            <div className="flex items-center gap-2 border-l border-border pl-5">
+              <Switch
+                id="only-available"
+                checked={onlyAvailable}
+                onCheckedChange={onOnlyAvailableChange}
+              />
+              <Label htmlFor="only-available" className="text-sm font-medium text-foreground">
+                Available on this date
+              </Label>
+            </div>
+          )}
         </div>
         <p className="text-sm text-muted-foreground">
           {resultCount} {resultCount === 1 ? "room" : "rooms"} found
