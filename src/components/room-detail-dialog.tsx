@@ -14,10 +14,13 @@ import {
   CalendarIcon,
   Check,
   ChevronDown,
+  Eye,
   LogIn,
+  Mail,
   MapPin,
   MonitorPlay,
   PenLine,
+  Send,
   ShieldCheck,
   Sparkles,
   Users,
@@ -35,11 +38,13 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { TIME_SLOTS } from "@/lib/schedule";
+import { TIME_SLOTS, TIME_BOUNDARIES, nextBoundary } from "@/lib/schedule";
 import type { Room } from "@/lib/rooms";
 import type { UserRole } from "@/lib/roles";
 
@@ -50,7 +55,8 @@ interface RoomDetailDialogProps {
   role: UserRole;
   onRequestLogin?: () => void;
   initialDate?: Date;
-  initialTime?: string;
+  initialStartTime?: string;
+  initialEndTime?: string;
 }
 
 function launchConfetti() {
@@ -88,7 +94,8 @@ export function RoomDetailDialog({
   role,
   onRequestLogin,
   initialDate,
-  initialTime,
+  initialStartTime,
+  initialEndTime,
 }: RoomDetailDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,7 +111,8 @@ export function RoomDetailDialog({
             role={role}
             onRequestLogin={onRequestLogin}
             initialDate={initialDate}
-            initialTime={initialTime}
+            initialStartTime={initialStartTime}
+            initialEndTime={initialEndTime}
           />
         )}
       </DialogContent>
@@ -118,7 +126,8 @@ interface RoomDetailDialogBodyProps {
   role: UserRole;
   onRequestLogin?: () => void;
   initialDate?: Date;
-  initialTime?: string;
+  initialStartTime?: string;
+  initialEndTime?: string;
 }
 
 function RoomDetailDialogBody({
@@ -127,36 +136,67 @@ function RoomDetailDialogBody({
   role,
   onRequestLogin,
   initialDate,
-  initialTime,
+  initialStartTime,
+  initialEndTime,
 }: RoomDetailDialogBodyProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate ?? new Date());
-  const [selectedTime, setSelectedTime] = useState<string | null>(initialTime ?? null);
+  const [selectedStartTime, setSelectedStartTime] = useState<string | null>(
+    initialStartTime ?? null,
+  );
+  const [selectedEndTime, setSelectedEndTime] = useState<string | null>(
+    initialEndTime ?? (initialStartTime ? nextBoundary(initialStartTime) ?? null : null),
+  );
   const [visualMode, setVisualMode] = useState<"photo" | number>("photo");
   const [isBooking, setIsBooking] = useState(false);
   const [booked, setBooked] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
 
-  const confirmBooking = (time: string, date: Date | undefined) => {
+  const endTimeOptions = selectedStartTime
+    ? TIME_BOUNDARIES.filter((t) => t > selectedStartTime)
+    : [];
+
+  const handleStartTimeSelect = (time: string) => {
+    setSelectedStartTime(time);
+    setSelectedEndTime((prev) => (prev && prev > time ? prev : nextBoundary(time) ?? null));
+  };
+
+  const confirmBooking = (start: string, end: string, date: Date | undefined) => {
     setIsBooking(true);
     window.setTimeout(() => {
       setIsBooking(false);
       setBooked(true);
       launchConfetti();
       toast.success("Room booked!", {
-        description: `${room.name} · ${date ? format(date, "EEE, d MMM yyyy") : ""} at ${time}`,
+        description: `${room.name} · ${date ? format(date, "EEE, d MMM yyyy") : ""} · ${start}–${end}`,
         icon: <Check className="size-4" />,
       });
     }, 500);
   };
 
   const handleBookNow = () => {
-    if (!selectedTime) return;
-    confirmBooking(selectedTime, selectedDate);
+    if (!selectedStartTime || !selectedEndTime) return;
+    confirmBooking(selectedStartTime, selectedEndTime, selectedDate);
   };
 
   const handleQuickBook = () => {
-    const time = selectedTime ?? TIME_SLOTS[0];
-    setSelectedTime(time);
-    confirmBooking(time, selectedDate ?? new Date());
+    const start = selectedStartTime ?? TIME_SLOTS[0];
+    const end = selectedEndTime && selectedEndTime > start ? selectedEndTime : nextBoundary(start) ?? TIME_BOUNDARIES[TIME_BOUNDARIES.length - 1];
+    setSelectedStartTime(start);
+    setSelectedEndTime(end);
+    confirmBooking(start, end, selectedDate ?? new Date());
+  };
+
+  const handleSendContact = () => {
+    setIsBooking(true);
+    window.setTimeout(() => {
+      setIsBooking(false);
+      setContactSent(true);
+      toast.success("Message sent", {
+        description: "Raumdisposition will get back to you shortly.",
+        icon: <Check className="size-4" />,
+      });
+    }, 500);
   };
 
   const hasAccessibilityDetails =
@@ -381,23 +421,95 @@ function RoomDetailDialogBody({
           {/* Right: booking action panel */}
           <div className="md:sticky md:top-4 md:self-start">
             {role === "external" ? (
-              <div className="rounded-xl border border-border bg-secondary/40 p-5 text-center">
-                <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-[var(--uzh-blue)]/10 text-[var(--uzh-blue)]">
-                  <LogIn className="size-5" />
-                </span>
-                <p className="mt-3 text-sm font-semibold text-foreground">
-                  Log in to book this room
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Accessibility information is public. Booking is reserved for UZH members —
-                  log in with your UZH short name to check availability and reserve a slot.
-                </p>
-                <Button
-                  className="mt-4 w-full bg-[var(--uzh-blue)] hover:bg-[var(--uzh-blue)]/90"
-                  onClick={onRequestLogin}
-                >
-                  Log in
-                </Button>
+              <div className="rounded-xl border border-border bg-secondary/40 p-5">
+                {contactSent ? (
+                  <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <span className="inline-flex size-12 items-center justify-center rounded-full bg-[var(--uzh-green)]/20 text-[color:oklch(0.5_0.16_128)]">
+                      <Check className="size-6" strokeWidth={2.5} />
+                    </span>
+                    <p className="text-sm font-semibold text-foreground">Message sent</p>
+                    <p className="text-xs text-muted-foreground">
+                      Raumdisposition will get back to you about {room.name} shortly.
+                    </p>
+                  </div>
+                ) : showContactForm ? (
+                  <>
+                    <h3 className="text-sm font-semibold text-foreground">Contact Raumdisposition</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Tell us who you are and when you&apos;d like {room.name} — we&apos;ll check
+                      availability and get back to you.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-3">
+                      <div>
+                        <Label htmlFor="contact-name" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          Name
+                        </Label>
+                        <Input id="contact-name" placeholder="Jane Doe" />
+                      </div>
+                      <div>
+                        <Label htmlFor="contact-email" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          Email
+                        </Label>
+                        <Input id="contact-email" type="email" placeholder="jane@example.com" />
+                      </div>
+                      <div>
+                        <Label htmlFor="contact-message" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          Message
+                        </Label>
+                        <textarea
+                          id="contact-message"
+                          rows={3}
+                          placeholder={`I'd like to enquire about booking ${room.name}…`}
+                          className="w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-[var(--uzh-blue)] focus-visible:ring-2 focus-visible:ring-[var(--uzh-blue)]/20"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      className="mt-4 w-full gap-1.5 bg-[var(--uzh-blue)] hover:bg-[var(--uzh-blue)]/90"
+                      disabled={isBooking}
+                      onClick={handleSendContact}
+                    >
+                      <Send className="size-4" />
+                      {isBooking ? "Sending…" : "Send message"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="mt-1.5 w-full text-muted-foreground"
+                      onClick={() => setShowContactForm(false)}
+                    >
+                      Back
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-[var(--uzh-blue)]/10 text-[var(--uzh-blue)]">
+                      <Eye className="size-5" />
+                    </span>
+                    <p className="mt-3 text-sm font-semibold text-foreground">
+                      See live availability & book instantly
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      UZH staff and students can log in to check real-time availability and
+                      reserve this room in a few clicks. External visitors and partners can
+                      reach out and our team will help arrange access.
+                    </p>
+                    <Button
+                      className="mt-4 w-full gap-1.5 bg-[var(--uzh-blue)] hover:bg-[var(--uzh-blue)]/90"
+                      onClick={onRequestLogin}
+                    >
+                      <LogIn className="size-4" />
+                      Log in as a UZH member
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="mt-2 w-full gap-1.5"
+                      onClick={() => setShowContactForm(true)}
+                    >
+                      <Mail className="size-4" />
+                      Contact us instead
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-xl border border-border bg-secondary/40 p-4">
@@ -408,7 +520,8 @@ function RoomDetailDialogBody({
                     </span>
                     <p className="text-sm font-semibold text-foreground">Booking confirmed</p>
                     <p className="text-xs text-muted-foreground">
-                      {selectedDate ? format(selectedDate, "EEE, d MMM yyyy") : ""} · {selectedTime}
+                      {selectedDate ? format(selectedDate, "EEE, d MMM yyyy") : ""} ·{" "}
+                      {selectedStartTime}–{selectedEndTime}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       A confirmation has been sent to your UZH inbox.
@@ -419,7 +532,8 @@ function RoomDetailDialogBody({
                       className="mt-3"
                       onClick={() => {
                         setBooked(false);
-                        setSelectedTime(null);
+                        setSelectedStartTime(null);
+                        setSelectedEndTime(null);
                       }}
                     >
                       Book another slot
@@ -459,17 +573,17 @@ function RoomDetailDialogBody({
 
                     <div className="mt-4">
                       <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                        Time slot
+                        Start time
                       </label>
                       <div className="grid grid-cols-3 gap-1.5">
                         {TIME_SLOTS.map((time) => (
                           <button
                             key={time}
                             type="button"
-                            onClick={() => setSelectedTime(time)}
+                            onClick={() => handleStartTimeSelect(time)}
                             className={cn(
                               "rounded-md border px-2 py-1.5 text-xs font-medium transition-colors",
-                              selectedTime === time
+                              selectedStartTime === time
                                 ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
                                 : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
                             )}
@@ -480,9 +594,38 @@ function RoomDetailDialogBody({
                       </div>
                     </div>
 
+                    <div className="mt-4">
+                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        End time
+                      </label>
+                      {selectedStartTime ? (
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {endTimeOptions.map((time) => (
+                            <button
+                              key={time}
+                              type="button"
+                              onClick={() => setSelectedEndTime(time)}
+                              className={cn(
+                                "rounded-md border px-2 py-1.5 text-xs font-medium transition-colors",
+                                selectedEndTime === time
+                                  ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
+                                  : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
+                              )}
+                            >
+                              {time}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="rounded-md border border-dashed border-input px-3 py-2 text-xs text-muted-foreground">
+                          Pick a start time first
+                        </p>
+                      )}
+                    </div>
+
                     <Button
                       className="mt-5 w-full bg-[var(--uzh-blue)] hover:bg-[var(--uzh-blue)]/90"
-                      disabled={!selectedTime || isBooking}
+                      disabled={!selectedStartTime || !selectedEndTime || isBooking}
                       onClick={handleBookNow}
                     >
                       {isBooking ? "Booking…" : "Book Now"}

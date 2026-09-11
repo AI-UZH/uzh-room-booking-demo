@@ -12,6 +12,7 @@ import { CalendarView } from "@/components/calendar-view";
 import { AdminBookings } from "@/components/admin-bookings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rooms, capacityBucket, type Building, type Room } from "@/lib/rooms";
+import { dateKey, getRoomAvailability, nextBoundary } from "@/lib/schedule";
 import type { UserRole } from "@/lib/roles";
 
 export default function Home() {
@@ -20,17 +21,22 @@ export default function Home() {
   const [building, setBuilding] = useState<Building | "all">("all");
   const [search, setSearch] = useState("");
   const [minAttendees, setMinAttendees] = useState("");
+  const [browseDate, setBrowseDate] = useState<Date>(new Date());
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [view, setView] = useState<"grid" | "calendar" | "bookings">("grid");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [prefill, setPrefill] = useState<{ date?: Date; time?: string }>({});
+  const [prefill, setPrefill] = useState<{ date?: Date; start?: string; end?: string }>({});
+
+  const browseDateKey = dateKey(browseDate);
 
   const filteredRooms = useMemo(() => {
     return rooms.filter((room) => {
       if (capacity !== "all" && capacityBucket(room.capacity) !== capacity) return false;
       if (building !== "all" && room.building !== building) return false;
-      if (onlyAvailable && !room.availableNow) return false;
+      if (onlyAvailable && !getRoomAvailability(room.id, browseDateKey).hasAvailability) {
+        return false;
+      }
       const exact = Number(minAttendees);
       if (minAttendees.trim() && Number.isFinite(exact) && exact > 0 && room.capacity < exact) {
         return false;
@@ -47,17 +53,17 @@ export default function Home() {
       }
       return true;
     });
-  }, [capacity, building, search, minAttendees, onlyAvailable]);
+  }, [capacity, building, search, minAttendees, onlyAvailable, browseDateKey]);
 
   const handleSelect = (room: Room) => {
     setSelectedRoom(room);
-    setPrefill({});
+    setPrefill({ date: browseDate });
     setDialogOpen(true);
   };
 
   const handleSelectSlot = (room: Room, date: Date, time: string) => {
     setSelectedRoom(room);
-    setPrefill({ date, time });
+    setPrefill({ date, start: time, end: nextBoundary(time) });
     setDialogOpen(true);
   };
 
@@ -133,6 +139,8 @@ export default function Home() {
               onSearchChange={setSearch}
               minAttendees={minAttendees}
               onMinAttendeesChange={setMinAttendees}
+              date={browseDate}
+              onDateChange={setBrowseDate}
               onlyAvailable={onlyAvailable}
               onOnlyAvailableChange={setOnlyAvailable}
               resultCount={filteredRooms.length}
@@ -143,13 +151,19 @@ export default function Home() {
                 <SearchX className="size-10 text-muted-foreground/50" />
                 <p className="text-sm font-medium text-foreground">No rooms match your filters</p>
                 <p className="text-sm text-muted-foreground">
-                  Try widening the capacity range or choosing a different location.
+                  Try widening the capacity range, choosing a different date, or a different
+                  location.
                 </p>
               </div>
             ) : (
               <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredRooms.map((room) => (
-                  <RoomCard key={room.id} room={room} onSelect={handleSelect} />
+                  <RoomCard
+                    key={room.id}
+                    room={room}
+                    availability={getRoomAvailability(room.id, browseDateKey)}
+                    onSelect={handleSelect}
+                  />
                 ))}
               </div>
             )}
@@ -200,7 +214,8 @@ export default function Home() {
         role={role}
         onRequestLogin={() => handleRoleChange("user")}
         initialDate={prefill.date}
-        initialTime={prefill.time}
+        initialStartTime={prefill.start}
+        initialEndTime={prefill.end}
       />
     </div>
   );

@@ -43,8 +43,6 @@ export interface Room {
   uniabilityUrl?: string;
   /** 360°/3D room viewer iframe URLs from del.uzh.ch (front/back view, etc). */
   visual3dUrls: string[];
-  availableNow: boolean;
-  nextAvailableSlot: string;
 }
 
 export const rooms: Room[] = [
@@ -100,8 +98,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_HAH-E-03.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/HAH/rooms/E-03/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms//HAH-E-03/HAH-E-03_vorne/app-files", "https://del.uzh.ch/static/rooms/HAH-E-03/HAH-E-03_hinten/app-files"],
-    availableNow: true,
-    nextAvailableSlot: "16:00",
   },
   {
     id: "hah-e-10",
@@ -158,8 +154,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_HAH-E-10.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/HAH/rooms/E-10/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/HAH-E-10/app-files", "https://del.uzh.ch/static/rooms/HAH-E-10/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "09:00 tomorrow",
   },
   {
     id: "hah-e-11",
@@ -213,8 +207,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_HAH-E-11.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/HAH/rooms/E-11/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms//HAH-E-03/HAH-E-03_vorne/app-files", "https://del.uzh.ch/static/rooms/Hah-E-11/HAH-E-11_vorne/app-files", "https://del.uzh.ch/static/rooms/Hah-E-11/HAH-E-11_hinten/app-files"],
-    availableNow: true,
-    nextAvailableSlot: "11:00",
   },
   {
     id: "koh-b-10",
@@ -268,8 +260,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_KOH-B-10.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/KOH/rooms/B-10/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/KOH-B-10/KOH-B-10vorne/app-files/", "https://del.uzh.ch/static/rooms/KOH-B-10/KOH-B-10hinten/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "13:00 tomorrow",
   },
   {
     id: "kol-lichthof",
@@ -299,8 +289,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_KOL-lichthof.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Lichthof-UZH-Zentrum/LichthofNord/app-files/", "https://del.uzh.ch/static/rooms/Lichthof-UZH-Zentrum/LichthofSued/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "10:00",
   },
   {
     id: "kol-f-101",
@@ -355,8 +343,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_KOL-F-101.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/KOL/rooms/F-101/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/KOL-F-101/KOL-F-101_hinten/app-files/", "https://del.uzh.ch/static/rooms/KOL-F-101/KOL-F-101_vornemitte/app-files/", "https://del.uzh.ch/static/rooms/KOL-F-101/KOL-F-101_vornelinks/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "15:00",
   },
   {
     id: "kol-g-201",
@@ -412,8 +398,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_KOL-G-201.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/KOL/rooms/G-201/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/KOL-G-201/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "08:00 tomorrow",
   },
   {
     id: "kol-h-312",
@@ -469,8 +453,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_KOL-H-312.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/KOL/rooms/H-312A/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/KOL-H-312/KOL-H-312vorne/app-files/", "https://del.uzh.ch/static/rooms/KOL-H-312/KOL-H-312hinten/app-files/", "https://del.uzh.ch/static/rooms/KOL-H-312/KOL-H-312seitengang/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "16:00",
   },
   {
     id: "ko2-f-180",
@@ -525,8 +507,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_KO2-F-180.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/KO2/rooms/F-180A/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/KO2-F-180/KO2_F_180_hinten/app-files", "https://del.uzh.ch/static/rooms/KO2-F-180/KO2_F_180_vorne/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "09:00 tomorrow",
   },
   {
     id: "obere-mensa",
@@ -556,8 +536,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_obere-mensa.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/obere-Mensa/ObereMensaAussenbereich/app-files/", "https://del.uzh.ch/static/rooms/obere-Mensa/ObereMensaView1/app-files/", "https://del.uzh.ch/static/rooms/obere-Mensa/ObereMensaView2/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "11:00",
   },
   {
     id: "kum-e-01-02-03",
@@ -587,8 +565,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_KUM-E-01_02_03.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/KUM/KUM-E-01/app-files/", "https://del.uzh.ch/static/rooms/KUM/KUM-E-02/app-files/", "https://del.uzh.ch/static/rooms/KUM/KUM-E-03/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "13:00 tomorrow",
   },
   {
     id: "raa-lichthof",
@@ -618,8 +594,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_RAA-lichthof.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/RAA-Eingang/RAA_Eingang/app-files/", "https://del.uzh.ch/static/rooms/RAA-Eingang/Raa_Eingang2/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "10:00",
   },
   {
     id: "raa-g-01",
@@ -674,8 +648,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_RAA-G-01.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/RAA/rooms/G-01/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/RAA-G-01/RAA-G-01-Hinten/app-files/", "https://del.uzh.ch/static/rooms/RAA-G-01/RAA-G-01-Hinten/app-files", "https://del.uzh.ch/static/rooms/RAA-G-01/RAA-G-01-Vorne/app-files/", "https://del.uzh.ch/static/rooms/RAA-G-01/RAA-G-01-Vorne/app-files"],
-    availableNow: true,
-    nextAvailableSlot: "15:00",
   },
   {
     id: "y04-g-30",
@@ -730,8 +702,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y04-G-30.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/Y04/rooms/G-30/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Y04-G-30/Y04-G-30_vorne/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "08:00 tomorrow",
   },
   {
     id: "y15-g-20",
@@ -788,8 +758,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y15-G-20.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/Y15/rooms/G-20/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Y15-G-20/Y15-G-20_hinten/app-files", "https://del.uzh.ch/static/rooms/Y15-G-20/Y15-G-20_vorne/app-files"],
-    availableNow: true,
-    nextAvailableSlot: "16:00",
   },
   {
     id: "y15-g-40",
@@ -844,8 +812,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y15-G-40.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/Y15/rooms/G-40/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Y15-G-40/Y15-G-40_hinten/app-files/", "https://del.uzh.ch/static/rooms/Y15-G-40/Y15-G-40_vorne/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "09:00 tomorrow",
   },
   {
     id: "y24-g-45",
@@ -900,8 +866,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y24-G-45.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/Y24/rooms/G-45/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Y24-G-45/Y24-G-45_vorne/app-files", "https://del.uzh.ch/static/rooms/Y24-G-45/Y24-G-45_hinten/app-files"],
-    availableNow: true,
-    nextAvailableSlot: "11:00",
   },
   {
     id: "y21-f-65",
@@ -956,8 +920,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y21-F-65.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/Y21/rooms/F-65/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Y21-F-65/Y21-F-65-Buehne/app-files/", "https://del.uzh.ch/static/rooms/Y21-F-65/Y21-F-65-Mitte/app-files/", "https://del.uzh.ch/static/rooms/Y21-F-65/Y21-F-65_Aperoflaeche/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "13:00 tomorrow",
   },
   {
     id: "y24-lichthof",
@@ -990,8 +952,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y24-lichthof.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/Y24/rooms/G-100/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Lichthof_Irchel/Seitentreppe/app-files/", "https://del.uzh.ch/static/rooms/Lichthof_Irchel/Unten/app-files/", "https://del.uzh.ch/static/rooms/Lichthof_Irchel/oben/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "10:00",
   },
   {
     id: "y24-galerie",
@@ -1021,8 +981,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y24-galerie.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Y-24-Gallerie/app-files/", "https://del.uzh.ch/static/rooms/Lichthof_Irchel/Oben_Gallerie/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "15:00",
   },
   {
     id: "y24-medizinerhof",
@@ -1052,8 +1010,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_Y24-medizinerhof.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Y-24-Aussenbereich/Y-24-Aussenbereich1/app-files/", "https://del.uzh.ch/static/rooms/Y-24-Aussenbereich/Y-24-Aussenbereich1/app-files", "https://del.uzh.ch/static/rooms/Y-24-Aussenbereich/Y-24-Aussenbereich2/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "08:00 tomorrow",
   },
   {
     id: "green-kitchen-lab",
@@ -1083,8 +1039,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_green-kitchen-lab.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/Green-Kitchen-Lab/Green-Kitchen-Lab-4/app-files/", "https://del.uzh.ch/static/rooms/Green-Kitchen-Lab/Green-Kitchen-Lab-3/app-files/", "https://del.uzh.ch/static/rooms/Green-Kitchen-Lab/Green-Kitchen-Lab-Aussen/app-files/", "https://del.uzh.ch/static/rooms/Green-Kitchen-Lab/Green-Kitchen-Lab-2/app-files/", "https://del.uzh.ch/static/rooms/Green-Kitchen-Lab/Green-Kitchen-Lab-1/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "16:00",
   },
   {
     id: "bin-0-k-02",
@@ -1139,8 +1093,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_BIN-0-K-02.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/BIN/rooms/0-K.02/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/BIN-0-K-02/BIN-0-K-02_hinten/app-files/", "https://del.uzh.ch/static/rooms/BIN-0-K-02/BIN-0-K-02_vorne/app-files", "https://del.uzh.ch/static/rooms/BIN-0-K-02/BIN-0-K-02_vorne/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "09:00 tomorrow",
   },
   {
     id: "bin-0-k-1",
@@ -1170,8 +1122,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_BIN-0-K-1.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/BIN-0-K-11/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "11:00",
   },
   {
     id: "bin-0-mall",
@@ -1201,8 +1151,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_BIN-0-Mall.html",
     uniabilityUrl: undefined,
     visual3dUrls: ["https://del.uzh.ch/static/rooms/BIN-Mall/app-files/"],
-    availableNow: false,
-    nextAvailableSlot: "13:00 tomorrow",
   },
   {
     id: "bin-1-b-01",
@@ -1256,8 +1204,6 @@ export const rooms: Room[] = [
     sourceUrl: "https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume/rauminformation_BIN-1-B-01.html",
     uniabilityUrl: "https://www.uniability.uzh.ch/static/current/buildings/BIN/rooms/1-B.01/",
     visual3dUrls: ["https://del.uzh.ch/static/rooms/BIN-1-01/BIN-1-01_hinten/app-files/", "https://del.uzh.ch/static/rooms/BIN-1-01/BIN-1-01_vorne/app-files/"],
-    availableNow: true,
-    nextAvailableSlot: "10:00",
   },
 ];
 

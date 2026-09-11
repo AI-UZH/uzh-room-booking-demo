@@ -4,14 +4,16 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AccessibilityBadges } from "@/components/accessibility-badges";
 import { cn } from "@/lib/utils";
+import type { RoomAvailability } from "@/lib/schedule";
 import type { Room } from "@/lib/rooms";
 
 interface RoomCardProps {
   room: Room;
+  availability: RoomAvailability;
   onSelect: (room: Room) => void;
 }
 
-export function RoomCard({ room, onSelect }: RoomCardProps) {
+export function RoomCard({ room, availability, onSelect }: RoomCardProps) {
   return (
     <Card
       role="button"
@@ -40,7 +42,7 @@ export function RoomCard({ room, onSelect }: RoomCardProps) {
         <Badge
           className={cn(
             "absolute right-3 top-3 gap-1 shadow-sm",
-            room.availableNow
+            availability.hasAvailability
               ? "bg-[var(--uzh-green)]/90 text-[#1a2e00]"
               : "bg-white/95 text-muted-foreground",
           )}
@@ -48,10 +50,12 @@ export function RoomCard({ room, onSelect }: RoomCardProps) {
           <span
             className={cn(
               "size-1.5 rounded-full",
-              room.availableNow ? "bg-[#1a2e00]" : "bg-muted-foreground",
+              availability.hasAvailability ? "bg-[#1a2e00]" : "bg-muted-foreground",
             )}
           />
-          {room.availableNow ? "Available now" : `Free ${room.nextAvailableSlot}`}
+          {availability.hasAvailability
+            ? `Free from ${availability.nextFreeSlot}`
+            : "Fully booked"}
         </Badge>
       </div>
       <div className="flex flex-col gap-2 p-4 pt-3">

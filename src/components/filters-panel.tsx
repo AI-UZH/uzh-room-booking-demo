@@ -1,6 +1,7 @@
 "use client";
 
-import { Search, Users } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, Search, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -12,6 +13,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import type { Building } from "@/lib/rooms";
 
 export type CapacityFilter = "all" | "lt50" | "mid" | "gt100";
@@ -32,6 +36,8 @@ interface FiltersPanelProps {
   onSearchChange: (value: string) => void;
   minAttendees: string;
   onMinAttendeesChange: (value: string) => void;
+  date: Date;
+  onDateChange: (value: Date) => void;
   onlyAvailable: boolean;
   onOnlyAvailableChange: (value: boolean) => void;
   resultCount: number;
@@ -46,6 +52,8 @@ export function FiltersPanel({
   onSearchChange,
   minAttendees,
   onMinAttendeesChange,
+  date,
+  onDateChange,
   onlyAvailable,
   onOnlyAvailableChange,
   resultCount,
@@ -88,6 +96,24 @@ export function FiltersPanel({
               <SelectItem value="Oerlikon">Oerlikon</SelectItem>
             </SelectContent>
           </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-9 w-full justify-start gap-2 font-normal sm:w-48">
+                <CalendarIcon className="size-4 text-muted-foreground" />
+                {format(date, "EEE, d MMM")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(d) => d && onDateChange(d)}
+                disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+                autoFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -121,7 +147,7 @@ export function FiltersPanel({
               onCheckedChange={onOnlyAvailableChange}
             />
             <Label htmlFor="only-available" className="text-sm font-medium text-foreground">
-              Available now
+              Available on this date
             </Label>
           </div>
         </div>
