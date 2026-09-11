@@ -107,7 +107,7 @@ export default function Home() {
               </p>
             </div>
             <a
-              href="https://github.com/AI-UZH"
+              href="https://www.uzh.ai"
               target="_blank"
               rel="noreferrer"
               className="flex shrink-0 items-center gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm transition-colors hover:bg-white/15"
