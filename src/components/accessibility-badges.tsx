@@ -1,4 +1,4 @@
-import { Accessibility as AccessibilityIcon, Ear, ParkingCircle, Bath } from "lucide-react";
+import { Accessibility as AccessibilityIcon, Ear, AlertTriangle } from "lucide-react";
 import type { Accessibility } from "@/lib/rooms";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +21,7 @@ export function AccessibilityBadges({
       key: "wheelchair",
       active: accessibility.wheelchairAccessible,
       icon: AccessibilityIcon,
-      label: "Wheelchair accessible",
+      label: "Step-free access from outside the building",
     },
     {
       key: "hearing",
@@ -30,16 +30,10 @@ export function AccessibilityBadges({
       label: "Hearing loop (Höranlage)",
     },
     {
-      key: "wc",
-      active: accessibility.wheelchairWc,
-      icon: Bath,
-      label: "Wheelchair WC (Rollstuhl-WC)",
-    },
-    {
-      key: "parking",
-      active: accessibility.wheelchairParking,
-      icon: ParkingCircle,
-      label: "Wheelchair parking",
+      key: "steps-inside",
+      active: accessibility.stepsInsideRoom === true,
+      icon: AlertTriangle,
+      label: "Steps inside the room",
     },
   ].filter((b) => b.active);
 
@@ -54,7 +48,10 @@ export function AccessibilityBadges({
           title={label}
           aria-label={label}
           className={cn(
-            "inline-flex items-center justify-center rounded-full bg-accent text-[var(--uzh-blue)]",
+            "inline-flex items-center justify-center rounded-full",
+            key === "steps-inside"
+              ? "bg-[var(--uzh-yellow)]/20 text-[color:oklch(0.55_0.13_80)]"
+              : "bg-accent text-[var(--uzh-blue)]",
             boxSize[size],
           )}
         >

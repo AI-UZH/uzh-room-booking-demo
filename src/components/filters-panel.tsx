@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -9,6 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { Building } from "@/lib/rooms";
 
 export type CapacityFilter = "all" | "lt50" | "mid" | "gt100";
@@ -27,6 +30,10 @@ interface FiltersPanelProps {
   onBuildingChange: (value: Building | "all") => void;
   search: string;
   onSearchChange: (value: string) => void;
+  minAttendees: string;
+  onMinAttendeesChange: (value: string) => void;
+  onlyAvailable: boolean;
+  onOnlyAvailableChange: (value: boolean) => void;
   resultCount: number;
 }
 
@@ -37,6 +44,10 @@ export function FiltersPanel({
   onBuildingChange,
   search,
   onSearchChange,
+  minAttendees,
+  onMinAttendeesChange,
+  onlyAvailable,
+  onOnlyAvailableChange,
   resultCount,
 }: FiltersPanelProps) {
   return (
@@ -52,39 +63,67 @@ export function FiltersPanel({
           />
         </div>
 
-        <Select value={building} onValueChange={(v) => onBuildingChange(v as Building | "all")}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Location" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All locations</SelectItem>
-            <SelectItem value="Zentrum">Zentrum</SelectItem>
-            <SelectItem value="Irchel">Irchel</SelectItem>
-            <SelectItem value="Oerlikon">Oerlikon</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-44">
+            <Users className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={minAttendees}
+              onChange={(e) => onMinAttendeesChange(e.target.value)}
+              placeholder="Exact # of attendees"
+              className="h-9 pl-9"
+            />
+          </div>
+
+          <Select value={building} onValueChange={(v) => onBuildingChange(v as Building | "all")}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Location" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All locations</SelectItem>
+              <SelectItem value="Zentrum">Zentrum</SelectItem>
+              <SelectItem value="Irchel">Irchel</SelectItem>
+              <SelectItem value="Oerlikon">Oerlikon</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Capacity
-          </span>
-          {capacityOptions.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onCapacityChange(opt.value)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
-                capacity === opt.value
-                  ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
-                  : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Capacity
+            </span>
+            {capacityOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onCapacityChange(opt.value)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                  capacity === opt.value
+                    ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
+                    : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 border-l border-border pl-5">
+            <Switch
+              id="only-available"
+              checked={onlyAvailable}
+              onCheckedChange={onOnlyAvailableChange}
+            />
+            <Label htmlFor="only-available" className="text-sm font-medium text-foreground">
+              Available now
+            </Label>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">
           {resultCount} {resultCount === 1 ? "room" : "rooms"} found

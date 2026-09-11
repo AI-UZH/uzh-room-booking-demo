@@ -3,6 +3,7 @@ import { MapPin, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AccessibilityBadges } from "@/components/accessibility-badges";
+import { cn } from "@/lib/utils";
 import type { Room } from "@/lib/rooms";
 
 interface RoomCardProps {
@@ -35,6 +36,22 @@ export function RoomCard({ room, onSelect }: RoomCardProps) {
         <Badge className="absolute left-3 top-3 gap-1 bg-white/95 text-foreground shadow-sm">
           <Users className="size-3.5" />
           {room.capacity}+
+        </Badge>
+        <Badge
+          className={cn(
+            "absolute right-3 top-3 gap-1 shadow-sm",
+            room.availableNow
+              ? "bg-[var(--uzh-green)]/90 text-[#1a2e00]"
+              : "bg-white/95 text-muted-foreground",
+          )}
+        >
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              room.availableNow ? "bg-[#1a2e00]" : "bg-muted-foreground",
+            )}
+          />
+          {room.availableNow ? "Available now" : `Free ${room.nextAvailableSlot}`}
         </Badge>
       </div>
       <div className="flex flex-col gap-2 p-4 pt-3">
