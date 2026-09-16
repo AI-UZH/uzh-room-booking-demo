@@ -24,6 +24,7 @@ export type Database = {
           decision_note: string | null
           during: unknown
           end_time: string
+          event_request: Json | null
           id: string
           modified_at: string | null
           modified_by: string | null
@@ -43,6 +44,7 @@ export type Database = {
           decision_note?: string | null
           during?: unknown
           end_time: string
+          event_request?: Json | null
           id?: string
           modified_at?: string | null
           modified_by?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           decision_note?: string | null
           during?: unknown
           end_time?: string
+          event_request?: Json | null
           id?: string
           modified_at?: string | null
           modified_by?: string | null
@@ -395,6 +398,7 @@ export type Database = {
           decision_note: string | null
           during: unknown
           end_time: string
+          event_request: Json | null
           id: string
           modified_at: string | null
           modified_by: string | null
@@ -417,6 +421,7 @@ export type Database = {
           p_attendees?: number
           p_date: string
           p_end_time: string
+          p_event_request?: Json
           p_instant?: boolean
           p_purpose?: string
           p_room_id: string
@@ -431,6 +436,7 @@ export type Database = {
           decision_note: string | null
           during: unknown
           end_time: string
+          event_request: Json | null
           id: string
           modified_at: string | null
           modified_by: string | null
@@ -467,6 +473,7 @@ export type Database = {
           decision_note: string | null
           during: unknown
           end_time: string
+          event_request: Json | null
           id: string
           modified_at: string | null
           modified_by: string | null
@@ -512,6 +519,7 @@ export type Database = {
           decision_note: string | null
           during: unknown
           end_time: string
+          event_request: Json | null
           id: string
           modified_at: string | null
           modified_by: string | null

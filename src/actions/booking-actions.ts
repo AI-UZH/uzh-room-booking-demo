@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { BookingStatus } from "@/lib/supabase/types";
+import type { BookingStatus, Json } from "@/lib/supabase/types";
+import type { EventRequestDetails } from "@/lib/event-request";
 
 export async function createBookingAction(input: {
   roomId: string;
@@ -12,6 +13,7 @@ export async function createBookingAction(input: {
   attendees?: number | null;
   purpose?: string | null;
   instant?: boolean;
+  eventRequest?: EventRequestDetails | null;
 }): Promise<{ error: string | null; status?: BookingStatus }> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_booking", {
@@ -22,6 +24,7 @@ export async function createBookingAction(input: {
     p_attendees: input.attendees ?? undefined,
     p_purpose: input.purpose ?? undefined,
     p_instant: input.instant ?? false,
+    p_event_request: (input.eventRequest as unknown as Json) ?? undefined,
   });
   if (error) return { error: error.message };
   revalidatePath("/");

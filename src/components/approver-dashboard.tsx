@@ -225,7 +225,7 @@ export function ApproverDashboard({ initialBookings, viewerRole }: ApproverDashb
       </div>
 
       <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-sm">
           {viewing && (
             <>
               <DialogHeader>
@@ -251,6 +251,75 @@ export function ApproverDashboard({ initialBookings, viewerRole }: ApproverDashb
                   <DetailRow label="Rescheduled by" value={viewing.modifiedByName} />
                 )}
               </dl>
+
+              {viewing.eventRequest && (
+                <div className="mt-1 rounded-lg border border-dashed border-border bg-secondary/30 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Official event request
+                  </p>
+                  <dl className="flex flex-col divide-y divide-border text-xs">
+                    {viewing.eventRequest.eventType && (
+                      <DetailRow label="Event type" value={viewing.eventRequest.eventType} />
+                    )}
+                    <DetailRow
+                      label="Interval"
+                      value={viewing.eventRequest.interval === "recurring" ? "Recurring" : "One-time"}
+                    />
+                    {viewing.eventRequest.speakers && (
+                      <DetailRow label="Speakers" value={viewing.eventRequest.speakers} />
+                    )}
+                    {viewing.eventRequest.organizerInstitute && (
+                      <DetailRow
+                        label="Organizer"
+                        value={[
+                          viewing.eventRequest.organizerInstitute,
+                          viewing.eventRequest.organizerStreet,
+                          [viewing.eventRequest.organizerZip, viewing.eventRequest.organizerCity]
+                            .filter(Boolean)
+                            .join(" "),
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      />
+                    )}
+                    {(viewing.eventRequest.contactFirstName || viewing.eventRequest.contactName) && (
+                      <DetailRow
+                        label="Contact"
+                        value={[
+                          [viewing.eventRequest.contactFirstName, viewing.eventRequest.contactName]
+                            .filter(Boolean)
+                            .join(" "),
+                          viewing.eventRequest.contactPhone,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      />
+                    )}
+                    <DetailRow
+                      label="Freely accessible"
+                      value={viewing.eventRequest.freelyAccessible ? "Yes" : "No"}
+                    />
+                    <DetailRow
+                      label="Participation fee"
+                      value={viewing.eventRequest.participationFee ? "Yes" : "No"}
+                    />
+                    <DetailRow
+                      label="Controversial speakers"
+                      value={viewing.eventRequest.controversialSpeakers ? "Yes" : "No"}
+                    />
+                    <DetailRow label="Catering" value={viewing.eventRequest.catering ? "Yes" : "No"} />
+                    <DetailRow
+                      label="Recording / streaming"
+                      value={viewing.eventRequest.recordingRequested ? "Yes" : "No"}
+                    />
+                  </dl>
+                  {viewing.eventRequest.comments && (
+                    <p className="mt-2 text-xs leading-relaxed text-foreground">
+                      <span className="font-medium">Comments:</span> {viewing.eventRequest.comments}
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </DialogContent>

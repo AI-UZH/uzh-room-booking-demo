@@ -1,4 +1,5 @@
 import type { BookingStatus } from "@/lib/supabase/types";
+import type { EventRequestDetails } from "@/lib/event-request";
 
 export type { BookingStatus };
 
@@ -15,6 +16,7 @@ export interface AppBooking {
   endTime: string;
   attendees: number | null;
   purpose: string | null;
+  eventRequest: EventRequestDetails | null;
   status: BookingStatus;
   bookedByName: string | null;
   bookedByEmail: string;

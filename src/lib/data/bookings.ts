@@ -3,7 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 import type { AppBooking, BusySlot } from "@/lib/data/booking-types";
 
 const BOOKING_SELECT = `
-  id, room_id, date, start_time, end_time, attendees, purpose, status,
+  id, room_id, date, start_time, end_time, attendees, purpose, event_request, status,
   decided_at, decision_note, modified_at, created_at,
   rooms ( name, code, capacity, buildings ( name, campus, address ) ),
   booker:profiles!bookings_user_id_fkey ( full_name, email ),
@@ -26,6 +26,7 @@ function rowToBooking(row: any): AppBooking {
     endTime: row.end_time?.slice(0, 5) ?? row.end_time,
     attendees: row.attendees,
     purpose: row.purpose,
+    eventRequest: row.event_request ?? null,
     status: row.status,
     bookedByName: row.booker?.full_name ?? null,
     bookedByEmail: row.booker?.email ?? "",

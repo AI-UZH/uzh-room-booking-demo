@@ -20,6 +20,49 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type BookingStatus = "pending" | "confirmed" | "rejected" | "cancelled";
 
+// Mirrors src/lib/event-request.ts — kept as a plain structural type here
+// since this Edge Function is a standalone Deno runtime with no access to
+// the Next.js app's module graph.
+interface EventRequestDetails {
+  organizerInstitute: string;
+  organizerStreet: string;
+  organizerZip: string;
+  organizerCity: string;
+  billingInstitute: string;
+  billingStreet: string;
+  billingZip: string;
+  billingCity: string;
+  contactName: string;
+  contactFirstName: string;
+  contactEmail: string;
+  contactPhone: string;
+  eventType: string;
+  interval: "one_time" | "recurring";
+  speakers: string;
+  participants: "uzh_only" | "uzh_and_external" | "external_only";
+  freelyAccessible: boolean;
+  participationFee: boolean;
+  controversialSpeakers: boolean;
+  catering: boolean;
+  recordingRequested: boolean;
+  comments: string;
+  agreedToTerms: boolean;
+  wantsOrderConfirmation: boolean;
+}
+
+const EVENT_REQUEST_LINKS = {
+  codeOfConduct:
+    "https://www.campuskultur.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/infos_antragseinreichung.html",
+  moreInfo:
+    "https://www.campuskultur.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/infos_antragseinreichung.html",
+};
+
+const PARTICIPANTS_LABEL: Record<EventRequestDetails["participants"], string> = {
+  uzh_only: "Exclusively UZH members",
+  uzh_and_external: "UZH members and external participants",
+  external_only: "Exclusively external",
+};
+
 interface BookingRow {
   id: string;
   room_id: string;
@@ -31,6 +74,7 @@ interface BookingRow {
   decision_note: string | null;
   attendees: number | null;
   modified_at: string | null;
+  event_request: EventRequestDetails | null;
 }
 
 interface BookingWebhookPayload {
@@ -106,6 +150,65 @@ function detailRow(label: string, value: string): string {
     </tr>`;
 }
 
+function yesNo(value: boolean): string {
+  return value ? "Yes" : "No";
+}
+
+/**
+ * Renders the "official Campus Culture event request" block — organizer
+ * details, event type, audience, catering, etc. — plus the Code of
+ * Conduct / submission-info links, whenever a booking carries them (see
+ * EventRequestFields in the app; ordinary bookings have none of this).
+ */
+function eventRequestHtml(details: EventRequestDetails): string {
+  const organizerAddress = [details.organizerInstitute, details.organizerStreet, [details.organizerZip, details.organizerCity].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(", ");
+  const contact = [
+    [details.contactFirstName, details.contactName].filter(Boolean).join(" "),
+    details.contactEmail,
+    details.contactPhone,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const rows = [
+    details.eventType ? detailRow("Event type", details.eventType) : "",
+    detailRow("Interval", details.interval === "recurring" ? "Recurring event" : "One-time event"),
+    details.speakers ? detailRow("Speakers", details.speakers) : "",
+    organizerAddress ? detailRow("Organizer", organizerAddress) : "",
+    contact ? detailRow("Contact", contact) : "",
+    detailRow("Attending", PARTICIPANTS_LABEL[details.participants]),
+    detailRow("Freely accessible", yesNo(details.freelyAccessible)),
+    detailRow("Participation fee", yesNo(details.participationFee)),
+    detailRow("Controversial / high-profile speakers", yesNo(details.controversialSpeakers)),
+    detailRow("Catering (aperitif / coffee / food)", yesNo(details.catering)),
+    detailRow("Recording / live streaming requested", yesNo(details.recordingRequested)),
+  ].join("");
+
+  return `
+    <div style="margin-top:24px;">
+      <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;color:${MUTED};">
+        Event request details
+      </p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${CARD_BG};border-radius:12px;padding:4px 20px;">
+        ${rows}
+      </table>
+      ${
+        details.comments
+          ? `<p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:${INK};"><strong>Comments:</strong> ${details.comments}</p>`
+          : ""
+      }
+      <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${MUTED};">
+        By submitting this request you agreed to the
+        <a href="${EVENT_REQUEST_LINKS.codeOfConduct}" style="color:${UZH_BLUE};">Code of Conduct</a>
+        and
+        <a href="${EVENT_REQUEST_LINKS.moreInfo}" style="color:${UZH_BLUE};">further information on submitting a request</a>.
+        Events may only be publicized after written approval has been granted.
+      </p>
+    </div>`;
+}
+
 function renderEmail(opts: {
   copy: EventCopy;
   roomName: string;
@@ -113,8 +216,9 @@ function renderEmail(opts: {
   when: string;
   attendees: number | null;
   detailsExtra?: string;
+  eventRequest?: EventRequestDetails | null;
 }): string {
-  const { copy, roomName, buildingName, when, attendees, detailsExtra } = opts;
+  const { copy, roomName, buildingName, when, attendees, detailsExtra, eventRequest } = opts;
   const rows = [
     detailRow("Room", roomName),
     detailRow("Location", buildingName),
@@ -160,6 +264,7 @@ function renderEmail(opts: {
                   ${rows}
                 </table>
                 ${copy.extraHtml ?? ""}
+                ${eventRequest ? eventRequestHtml(eventRequest) : ""}
                 <p style="margin:28px 0 0;font-size:12px;line-height:1.6;color:${MUTED};">
                   Manage this booking any time from the
                   <span style="color:${copy.accent};font-weight:600;">UZH Rooms</span> dashboard.
@@ -193,9 +298,16 @@ function templateFor(
     attendees: number | null;
     note: string | null;
     previousWhen?: string;
+    eventRequest: EventRequestDetails | null;
   },
 ): { subject: string; html: string } {
-  const base = { roomName: ctx.roomName, buildingName: ctx.buildingName, when: ctx.when, attendees: ctx.attendees };
+  const base = {
+    roomName: ctx.roomName,
+    buildingName: ctx.buildingName,
+    when: ctx.when,
+    attendees: ctx.attendees,
+    eventRequest: ctx.eventRequest,
+  };
 
   switch (event) {
     case "requested":
@@ -349,6 +461,7 @@ Deno.serve(async (req) => {
     when: formatWhen(booking.date, booking.start_time, booking.end_time),
     attendees: booking.attendees,
     note: booking.decision_note,
+    eventRequest: booking.event_request,
     previousWhen:
       event === "changed" && payload.old_record
         ? formatWhen(payload.old_record.date, payload.old_record.start_time, payload.old_record.end_time)

@@ -49,6 +49,13 @@ import { TIME_SLOTS, TIME_BOUNDARIES, nextBoundary, dateKey } from "@/lib/schedu
 import { createBookingAction } from "@/actions/booking-actions";
 import { submitEnquiryAction } from "@/actions/enquiry-actions";
 import { canApprove } from "@/lib/roles";
+import { EventRequestFields } from "@/components/event-request-fields";
+import {
+  DEFAULT_EVENT_REQUEST,
+  isEventRequestStarted,
+  splitFullName,
+  type EventRequestDetails,
+} from "@/lib/event-request";
 import type { Room } from "@/lib/rooms";
 import type { AppProfile } from "@/lib/data/profile";
 
@@ -153,6 +160,15 @@ function RoomDetailDialogBody({
     initialStartTime ? nextBoundary(initialStartTime) ?? null : null,
   );
   const [attendees, setAttendees] = useState("");
+  const [eventRequest, setEventRequest] = useState<EventRequestDetails>(() => {
+    const { firstName, lastName } = splitFullName(profile?.fullName ?? null);
+    return {
+      ...DEFAULT_EVENT_REQUEST,
+      contactFirstName: firstName,
+      contactName: lastName,
+      contactEmail: profile?.email ?? "",
+    };
+  });
   const [visualMode, setVisualMode] = useState<"photo" | number>("photo");
   const [isBooking, setIsBooking] = useState(false);
   const [booked, setBooked] = useState<"confirmed" | "pending" | null>(null);
@@ -182,6 +198,7 @@ function RoomDetailDialogBody({
       endTime: end,
       attendees: attendees.trim() ? Number(attendees) : null,
       instant,
+      eventRequest: isEventRequestStarted(eventRequest) ? eventRequest : null,
     });
     setIsBooking(false);
     if (error) {
@@ -701,6 +718,19 @@ function RoomDetailDialogBody({
                         placeholder={`Up to ${room.capacity}`}
                       />
                     </div>
+
+                    <details className="group mt-4">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-[var(--uzh-blue)]">
+                        <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
+                        Full event request — for official Campus Culture bookings
+                        {isEventRequestStarted(eventRequest) && (
+                          <span className="inline-flex size-1.5 rounded-full bg-[var(--uzh-blue)]" />
+                        )}
+                      </summary>
+                      <div className="mt-3 rounded-lg border border-dashed border-border bg-secondary/30 p-3">
+                        <EventRequestFields value={eventRequest} onChange={setEventRequest} />
+                      </div>
+                    </details>
 
                     {bookingError && (
                       <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
