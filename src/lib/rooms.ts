@@ -60,7 +60,7 @@ export interface Room {
   /** 360°/3D room viewer iframe URLs from del.uzh.ch (front/back view, etc). */
   visual3dUrls: string[];
   roomType: RoomType | null;
-  /** Rooms like the Aula or Lichthof route through an approver instead of auto-confirming. */
+  /** Auditoriums, event spaces, and dining spaces route through an approver instead of auto-confirming. */
   requiresApproval: boolean;
   /** Deactivated rooms are only visible to admins (managed via the room admin screen). */
   isActive: boolean;

@@ -136,9 +136,10 @@ visually verified during development.
 
 ## What's here
 
-- **Room discovery** — all 26 real UZH event rooms, filterable by search, room type (Hörsaal,
-  Seminarraum, Aula, …), capacity, location, exact attendee count, and (for signed-in users)
-  availability on a chosen date
+- **Room discovery** — 122 real UZH rooms across 15 buildings, filterable by search, room type
+  (Lecture Hall, Seminar Room, Meeting Room, Auditorium, Event & Reception Space, Dining &
+  Catering — 6 plain-English categories, consolidated from an original 11), capacity, location,
+  exact attendee count, and (for signed-in users) availability on a chosen date
 - **Calendar view** — a day schedule across every room; click a room name for its full overview,
   or a free slot to start booking it for that time
 - **Room detail view** — real room photo, a live embedded 360° room viewer, and
@@ -164,15 +165,23 @@ visually verified during development.
 
 ## Data & image credits
 
-Room list, 360° viewer embeds and building locations come from
-[del.uzh.ch — Eventräume](https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume.html).
-Accessibility data, capacities and most room photos come from
-[Uniability](https://www.uniability.uzh.ch/de.html)'s per-room pages, which cover 17 of the
-26 rooms (the rest — Lichthofs, the Mensa, BIN Mall, courtyards, and a few combined rooms —
-aren't catalogued there individually). For those, and where a Uniability photo wasn't
-available, the seed data falls back to the real Campus Culture UZH Lichthof photo or
-CC-licensed academic-space stand-ins from Wikimedia Commons — see each room's `image_credit`
-and `accessibility_notes` in `supabase/migrations/20260916000006_seed_rooms.sql`.
+The original 26 rooms (event-only spaces) come from
+[del.uzh.ch — Eventräume](https://www.del.uzh.ch/de/campusnutzung-und-bewilligungen/raeume/lehr-und-veranstaltungsraeume/raeumlichkeiten/eventraeume.html),
+with 360° viewer embeds from the same source. A second batch of 96 rooms across 10 additional
+buildings was added from
+[Uniability](https://www.uniability.uzh.ch/de.html)'s full building directory
+(`uniability.uzh.ch/de/buildingsinfos.html`) — capacity, accessibility, and building addresses
+per room, cross-checked against a user-supplied room list room by room.
+
+Accessibility data and most room photos come from Uniability's per-room pages. Not every room has
+its own catalogued photo: the second batch reuses a real UZH photo per category (a real lecture
+hall, seminar room, auditorium, or dining photo already in this repo) as a clearly-labelled
+stand-in rather than one unique photo per room — see each room's `accessibility_notes` for which
+photo is real vs. representative. Where no Uniability page exists at all (courtyards, the service
+kitchen, a couple of reception spaces), the seed data says so explicitly rather than inventing
+data. See `supabase/migrations/20260916000006_seed_rooms.sql` (original 26) and
+`20260916000015_seed_new_rooms_batch2.sql` (the 96-room addition + the 11→6 room-category
+consolidation) for the exact source per room.
 
 ## Deploying
 
