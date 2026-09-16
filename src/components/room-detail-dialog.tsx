@@ -2,6 +2,7 @@
 
 import { useState, type ElementType } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import confetti from "canvas-confetti";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -44,19 +45,23 @@ import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { TIME_SLOTS, TIME_BOUNDARIES, nextBoundary } from "@/lib/schedule";
+import { TIME_SLOTS, TIME_BOUNDARIES, nextBoundary, dateKey } from "@/lib/schedule";
+import { createBookingAction } from "@/actions/booking-actions";
+import { submitEnquiryAction } from "@/actions/enquiry-actions";
+import { canApprove } from "@/lib/roles";
 import type { Room } from "@/lib/rooms";
-import type { UserRole } from "@/lib/roles";
+import type { AppProfile } from "@/lib/data/profile";
 
 interface RoomDetailDialogProps {
   room: Room | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  role: UserRole;
+  profile: AppProfile | null;
   onRequestLogin?: () => void;
   initialDate?: Date;
   initialStartTime?: string;
-  initialEndTime?: string;
+  /** Called after a booking is created/confirmed so the caller can refresh availability. */
+  onBookingChange?: () => void;
 }
 
 function launchConfetti() {
@@ -91,11 +96,11 @@ export function RoomDetailDialog({
   room,
   open,
   onOpenChange,
-  role,
+  profile,
   onRequestLogin,
   initialDate,
   initialStartTime,
-  initialEndTime,
+  onBookingChange,
 }: RoomDetailDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -108,11 +113,11 @@ export function RoomDetailDialog({
             key={room.id}
             room={room}
             onOpenChange={onOpenChange}
-            role={role}
+            profile={profile}
             onRequestLogin={onRequestLogin}
             initialDate={initialDate}
             initialStartTime={initialStartTime}
-            initialEndTime={initialEndTime}
+            onBookingChange={onBookingChange}
           />
         )}
       </DialogContent>
@@ -123,34 +128,40 @@ export function RoomDetailDialog({
 interface RoomDetailDialogBodyProps {
   room: Room;
   onOpenChange: (open: boolean) => void;
-  role: UserRole;
+  profile: AppProfile | null;
   onRequestLogin?: () => void;
   initialDate?: Date;
   initialStartTime?: string;
-  initialEndTime?: string;
+  onBookingChange?: () => void;
 }
 
 function RoomDetailDialogBody({
   room,
   onOpenChange,
-  role,
+  profile,
   onRequestLogin,
   initialDate,
   initialStartTime,
-  initialEndTime,
+  onBookingChange,
 }: RoomDetailDialogBodyProps) {
+  const isExternal = !profile;
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate ?? new Date());
   const [selectedStartTime, setSelectedStartTime] = useState<string | null>(
     initialStartTime ?? null,
   );
   const [selectedEndTime, setSelectedEndTime] = useState<string | null>(
-    initialEndTime ?? (initialStartTime ? nextBoundary(initialStartTime) ?? null : null),
+    initialStartTime ? nextBoundary(initialStartTime) ?? null : null,
   );
+  const [attendees, setAttendees] = useState("");
   const [visualMode, setVisualMode] = useState<"photo" | number>("photo");
   const [isBooking, setIsBooking] = useState(false);
-  const [booked, setBooked] = useState(false);
+  const [booked, setBooked] = useState<"confirmed" | "pending" | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactSent, setContactSent] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
 
   const endTimeOptions = selectedStartTime
     ? TIME_BOUNDARIES.filter((t) => t > selectedStartTime)
@@ -161,42 +172,66 @@ function RoomDetailDialogBody({
     setSelectedEndTime((prev) => (prev && prev > time ? prev : nextBoundary(time) ?? null));
   };
 
-  const confirmBooking = (start: string, end: string, date: Date | undefined) => {
+  const confirmBooking = async (start: string, end: string, date: Date, instant: boolean) => {
     setIsBooking(true);
-    window.setTimeout(() => {
-      setIsBooking(false);
-      setBooked(true);
-      launchConfetti();
-      toast.success("Room booked!", {
-        description: `${room.name} · ${date ? format(date, "EEE, d MMM yyyy") : ""} · ${start}–${end}`,
-        icon: <Check className="size-4" />,
-      });
-    }, 500);
+    setBookingError(null);
+    const { error, status } = await createBookingAction({
+      roomId: room.id,
+      date: dateKey(date),
+      startTime: start,
+      endTime: end,
+      attendees: attendees.trim() ? Number(attendees) : null,
+      instant,
+    });
+    setIsBooking(false);
+    if (error) {
+      setBookingError(error);
+      toast.error("Couldn't book that slot", { description: error });
+      return;
+    }
+    setBooked(status === "pending" ? "pending" : "confirmed");
+    onBookingChange?.();
+    if (status !== "pending") launchConfetti();
+    toast.success(status === "pending" ? "Booking request sent" : "Room booked!", {
+      description: `${room.name} · ${format(date, "EEE, d MMM yyyy")} · ${start}–${end}`,
+      icon: <Check className="size-4" />,
+    });
   };
 
   const handleBookNow = () => {
-    if (!selectedStartTime || !selectedEndTime) return;
-    confirmBooking(selectedStartTime, selectedEndTime, selectedDate);
+    if (!selectedStartTime || !selectedEndTime || !selectedDate) return;
+    void confirmBooking(selectedStartTime, selectedEndTime, selectedDate, false);
   };
 
   const handleQuickBook = () => {
     const start = selectedStartTime ?? TIME_SLOTS[0];
-    const end = selectedEndTime && selectedEndTime > start ? selectedEndTime : nextBoundary(start) ?? TIME_BOUNDARIES[TIME_BOUNDARIES.length - 1];
+    const end =
+      selectedEndTime && selectedEndTime > start
+        ? selectedEndTime
+        : nextBoundary(start) ?? TIME_BOUNDARIES[TIME_BOUNDARIES.length - 1];
     setSelectedStartTime(start);
     setSelectedEndTime(end);
-    confirmBooking(start, end, selectedDate ?? new Date());
+    void confirmBooking(start, end, selectedDate ?? new Date(), true);
   };
 
-  const handleSendContact = () => {
+  const handleSendContact = async () => {
     setIsBooking(true);
-    window.setTimeout(() => {
-      setIsBooking(false);
-      setContactSent(true);
-      toast.success("Message sent", {
-        description: "Raumdisposition will get back to you shortly.",
-        icon: <Check className="size-4" />,
-      });
-    }, 500);
+    const { error } = await submitEnquiryAction({
+      roomId: room.id,
+      name: contactName,
+      email: contactEmail,
+      message: contactMessage,
+    });
+    setIsBooking(false);
+    if (error) {
+      toast.error("Couldn't send that", { description: error });
+      return;
+    }
+    setContactSent(true);
+    toast.success("Message sent", {
+      description: "Raumdisposition will get back to you shortly.",
+      icon: <Check className="size-4" />,
+    });
   };
 
   const hasAccessibilityDetails =
@@ -384,7 +419,7 @@ function RoomDetailDialogBody({
               )}
             </div>
 
-            {role !== "external" && (
+            {!isExternal && (
               <>
                 <Separator />
 
@@ -420,7 +455,7 @@ function RoomDetailDialogBody({
 
           {/* Right: booking action panel */}
           <div className="md:sticky md:top-4 md:self-start">
-            {role === "external" ? (
+            {isExternal ? (
               <div className="rounded-xl border border-border bg-secondary/40 p-5">
                 {contactSent ? (
                   <div className="flex flex-col items-center gap-2 py-4 text-center">
@@ -444,13 +479,24 @@ function RoomDetailDialogBody({
                         <Label htmlFor="contact-name" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                           Name
                         </Label>
-                        <Input id="contact-name" placeholder="Jane Doe" />
+                        <Input
+                          id="contact-name"
+                          placeholder="Jane Doe"
+                          value={contactName}
+                          onChange={(e) => setContactName(e.target.value)}
+                        />
                       </div>
                       <div>
                         <Label htmlFor="contact-email" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                           Email
                         </Label>
-                        <Input id="contact-email" type="email" placeholder="jane@example.com" />
+                        <Input
+                          id="contact-email"
+                          type="email"
+                          placeholder="jane@example.com"
+                          value={contactEmail}
+                          onChange={(e) => setContactEmail(e.target.value)}
+                        />
                       </div>
                       <div>
                         <Label htmlFor="contact-message" className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -460,14 +506,16 @@ function RoomDetailDialogBody({
                           id="contact-message"
                           rows={3}
                           placeholder={`I'd like to enquire about booking ${room.name}…`}
+                          value={contactMessage}
+                          onChange={(e) => setContactMessage(e.target.value)}
                           className="w-full resize-none rounded-md border border-input bg-white px-3 py-2 text-sm shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-[var(--uzh-blue)] focus-visible:ring-2 focus-visible:ring-[var(--uzh-blue)]/20"
                         />
                       </div>
                     </div>
                     <Button
                       className="mt-4 w-full gap-1.5 bg-[var(--uzh-blue)] hover:bg-[var(--uzh-blue)]/90"
-                      disabled={isBooking}
-                      onClick={handleSendContact}
+                      disabled={isBooking || !contactName.trim() || !contactEmail.trim() || !contactMessage.trim()}
+                      onClick={() => void handleSendContact()}
                     >
                       <Send className="size-4" />
                       {isBooking ? "Sending…" : "Send message"}
@@ -515,23 +563,34 @@ function RoomDetailDialogBody({
               <div className="rounded-xl border border-border bg-secondary/40 p-4">
                 {booked ? (
                   <div className="flex flex-col items-center gap-2 py-6 text-center">
-                    <span className="inline-flex size-12 items-center justify-center rounded-full bg-[var(--uzh-green)]/20 text-[color:oklch(0.5_0.16_128)]">
+                    <span
+                      className={cn(
+                        "inline-flex size-12 items-center justify-center rounded-full",
+                        booked === "pending"
+                          ? "bg-[var(--uzh-yellow)]/20 text-[color:oklch(0.55_0.13_80)]"
+                          : "bg-[var(--uzh-green)]/20 text-[color:oklch(0.5_0.16_128)]",
+                      )}
+                    >
                       <Check className="size-6" strokeWidth={2.5} />
                     </span>
-                    <p className="text-sm font-semibold text-foreground">Booking confirmed</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {booked === "pending" ? "Awaiting approval" : "Booking confirmed"}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {selectedDate ? format(selectedDate, "EEE, d MMM yyyy") : ""} ·{" "}
                       {selectedStartTime}–{selectedEndTime}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      A confirmation has been sent to your UZH inbox.
+                      {booked === "pending"
+                        ? "Raumdisposition will review this request and email you once it's decided."
+                        : "A confirmation has been sent to your UZH inbox."}
                     </p>
                     <Button
                       variant="outline"
                       size="sm"
                       className="mt-3"
                       onClick={() => {
-                        setBooked(false);
+                        setBooked(null);
                         setSelectedStartTime(null);
                         setSelectedEndTime(null);
                       }}
@@ -542,6 +601,12 @@ function RoomDetailDialogBody({
                 ) : (
                   <>
                     <h3 className="text-sm font-semibold text-foreground">Book this room</h3>
+                    {room.requiresApproval && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        This room needs a Raumdisposition sign-off — your request will be
+                        &ldquo;pending&rdquo; until it&apos;s approved.
+                      </p>
+                    )}
 
                     <div className="mt-3">
                       <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -623,6 +688,26 @@ function RoomDetailDialogBody({
                       )}
                     </div>
 
+                    <div className="mt-4">
+                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        Attendees (optional)
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={room.capacity}
+                        value={attendees}
+                        onChange={(e) => setAttendees(e.target.value)}
+                        placeholder={`Up to ${room.capacity}`}
+                      />
+                    </div>
+
+                    {bookingError && (
+                      <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        {bookingError}
+                      </p>
+                    )}
+
                     <Button
                       className="mt-5 w-full bg-[var(--uzh-blue)] hover:bg-[var(--uzh-blue)]/90"
                       disabled={!selectedStartTime || !selectedEndTime || isBooking}
@@ -656,15 +741,18 @@ function RoomDetailDialogBody({
               </div>
             )}
 
-            {role === "admin" && (
+            {profile && canApprove(profile.role) && (
               <div className="mt-4 rounded-xl border border-dashed border-[var(--uzh-blue)]/30 bg-[var(--uzh-blue)]/5 p-4">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-[var(--uzh-blue)]">
                   <ShieldCheck className="size-3.5" />
-                  Admin tools
+                  Approver tools
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  As Raumdisposition, you can override the booking above or manage this room&apos;s
-                  full schedule from the Bookings dashboard.
+                  Bookings for this room that need a decision show up on the{" "}
+                  <Link href="/bookings" className="underline underline-offset-2">
+                    bookings dashboard
+                  </Link>
+                  .
                 </p>
               </div>
             )}

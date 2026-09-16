@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import type { Building } from "@/lib/rooms";
+import type { Building, RoomType } from "@/lib/rooms";
 
 export type CapacityFilter = "all" | "lt50" | "mid" | "gt100";
 
@@ -32,6 +32,9 @@ interface FiltersPanelProps {
   onCapacityChange: (value: CapacityFilter) => void;
   building: Building | "all";
   onBuildingChange: (value: Building | "all") => void;
+  roomTypes: RoomType[];
+  roomTypeSlug: string;
+  onRoomTypeChange: (value: string) => void;
   search: string;
   onSearchChange: (value: string) => void;
   minAttendees: string;
@@ -50,6 +53,9 @@ export function FiltersPanel({
   onCapacityChange,
   building,
   onBuildingChange,
+  roomTypes,
+  roomTypeSlug,
+  onRoomTypeChange,
   search,
   onSearchChange,
   minAttendees,
@@ -120,6 +126,39 @@ export function FiltersPanel({
             </Popover>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Room type
+        </span>
+        <button
+          type="button"
+          onClick={() => onRoomTypeChange("all")}
+          className={cn(
+            "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+            roomTypeSlug === "all"
+              ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
+              : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
+          )}
+        >
+          All types
+        </button>
+        {roomTypes.map((rt) => (
+          <button
+            key={rt.slug}
+            type="button"
+            onClick={() => onRoomTypeChange(rt.slug)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+              roomTypeSlug === rt.slug
+                ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
+                : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
+            )}
+          >
+            {rt.name}
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

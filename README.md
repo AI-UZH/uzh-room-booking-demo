@@ -1,10 +1,10 @@
 # UZH Room Booking Showcase
 
-A single-page proof-of-concept for a modern, unified room booking experience for the
-University of Zurich — combining event room discovery, real accessibility data (from
-[Uniability](https://www.uniability.uzh.ch/de.html)), live 360° room visuals, and a
-frictionless one-click booking flow, as a showcase for replacing the legacy 3vrooms interface.
-Built by [UZH.ai](https://github.com/AI-UZH) to inspire fellow UZH colleagues.
+A working proof-of-concept for a modern room booking platform for the University of Zurich —
+real accessibility data (from [Uniability](https://www.uniability.uzh.ch/de.html)), live 360°
+room visuals, role-based access, an approval workflow, and email notifications — built as a
+showcase for replacing the legacy 3vrooms interface. Built by [UZH.ai](https://www.uzh.ai) to
+inspire fellow UZH colleagues.
 
 This is a **non-official demo**. It is not affiliated with or endorsed by UZH IT Services.
 
@@ -13,30 +13,107 @@ This is a **non-official demo**. It is not affiliated with or endorsed by UZH IT
 - [Next.js](https://nextjs.org) (App Router) + React + TypeScript
 - Tailwind CSS, styled with UZH's corporate colors and Source Sans 3
 - [shadcn/ui](https://ui.shadcn.com) components + [Lucide](https://lucide.dev) icons
-- Hardcoded mock data (`src/lib/rooms.ts`) — zero backend, zero latency
+- [Supabase](https://supabase.com) — Postgres database, Auth, RLS, and an Edge Function for email
+- See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design and the plan for
+  eventually moving this onto UZH's own (Microsoft) infrastructure.
+
+## Roles
+
+| Role | Who | Can do |
+|---|---|---|
+| **External** | Anyone, not signed in | Browse rooms and their content/type — no availability, no calendar. Send an enquiry instead of booking. |
+| **Member** | Any signed-up account (the default) | Everything External sees + live availability + book rooms + manage their own bookings |
+| **Approver** | Promoted by an Admin | Member + the bookings dashboard (`/bookings`): approve/reject/cancel any booking |
+| **Admin** | Promoted by a Super Admin | Approver + manage rooms (`/admin/rooms`): create, edit, deactivate |
+| **Super Admin** | Set directly in the database (see below) | Admin + manage user roles (`/admin/users`) + permanently delete rooms |
+
+Rooms carry a `requires_approval` flag — lecture halls, seminar rooms and meeting rooms
+auto-confirm; everything else (Aula, Lichthof, Mensa, …) routes to an Approver. See
+`supabase/migrations/20260916000006_seed_rooms.sql` for which is which.
 
 ## Getting started
 
+You need a Supabase backend — either a **local** one (via the Supabase CLI + Docker, no account
+needed) or a **hosted** free project. Either way:
+
 ```bash
 npm install
+cp .env.example .env.local   # fill in the values below
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+### Option A — local Supabase (recommended while developing)
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (needs to actually
+   be running).
+2. `npx supabase start` — pulls and starts the local stack, prints your local URL/keys.
+3. Copy those into `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`). Migrations under `supabase/migrations/` are applied
+   automatically on `supabase start` (or `npx supabase db reset` to re-apply from scratch).
+
+### Option B — hosted Supabase project
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. `npx supabase link --project-ref <your-project-ref>`, then `npx supabase db push` to apply
+   every file in `supabase/migrations/` in order (or paste them into the SQL Editor one by one,
+   same order).
+3. Copy the URL/anon key/service role key from Settings → API into `.env.local`.
+
+### Make yourself a Super Admin
+
+New accounts start as **Member**. To bootstrap the first Super Admin, sign up in the app, then
+run this once in the SQL Editor (local: `npx supabase db execute`, hosted: the dashboard's SQL
+Editor):
+
+```sql
+select set_config('app.role_change_allowed', 'on', true);
+update profiles set role = 'super_admin' where email = 'you@uzh.ch';
+```
+
+From then on, use `/admin/users` to promote everyone else — that's the only sanctioned path
+(there's a trigger that rejects direct role edits from anywhere else, including this one-off
+bootstrap query outside of that `set_config` line).
+
+## Email notifications
+
+`supabase/functions/send-booking-email` emails the booker when a booking is created, approved,
+rejected or cancelled. It's wired up (DB trigger in
+`supabase/migrations/20260916000007_email_webhook.sql` → Edge Function → 
+[Resend](https://resend.com)) but **needs two things to actually send**:
+
+1. Deploy the function and give it a Resend key:
+   ```bash
+   npx supabase functions deploy send-booking-email
+   npx supabase secrets set RESEND_API_KEY=re_... RESEND_FROM_EMAIL="UZH Rooms <you@yourdomain>"
+   ```
+2. Point the DB trigger at it (Vault secrets — see the comment at the top of
+   `20260916000007_email_webhook.sql` for the exact `vault.create_secret(...)` calls, local vs.
+   hosted URL).
+
+Without those two steps, bookings still work fine — the trigger just no-ops instead of emailing,
+and nothing is logged as failed.
 
 ## What's here
 
-- **Room discovery** — filterable grid of all 26 UZH event rooms listed on del.uzh.ch
-  (search, location, capacity buckets, exact attendee count, "available now")
-- **Calendar view** — a day schedule across every room, click an open slot to start booking it
-- **Room detail view** — real room photo, a live embedded 360° room viewer ("View 3D Room
-  Visual"), and Uniability-sourced accessibility data: step-free access, hearing loop, door
-  width, reserved wheelchair seats, plus an expandable full raw report
-- **Booking flow** — date + time-slot picker, plus a one-click "Schnellbuchung" that skips
-  approval steps and confirms instantly with a success toast and confetti
-- **Three views, one profile menu** — switch between an external visitor (accessibility info
-  only, prompted to log in to book), a logged-in UZH member (full booking), and a facilities
-  administrator (adds a bookings dashboard with approve/cancel and stat tiles)
+- **Room discovery** — all 26 real UZH event rooms, filterable by search, room type (Hörsaal,
+  Seminarraum, Aula, …), capacity, location, exact attendee count, and (for signed-in users)
+  availability on a chosen date
+- **Calendar view** — a day schedule across every room; click a room name for its full overview,
+  or a free slot to start booking it for that time
+- **Room detail view** — real room photo, a live embedded 360° room viewer, and
+  Uniability-sourced accessibility data (step-free access, hearing loop, door width, reserved
+  wheelchair seats, full raw report)
+- **Real booking flow** — start + end time, attendee count, auto-confirm or pending-approval
+  depending on the room, double-booking prevented at the database level (a Postgres exclusion
+  constraint, not just application logic), plus a one-click "Schnellbuchung" that always
+  auto-confirms
+- **External visitors** see rooms and accessibility info only — no availability, no calendar,
+  and a "contact us" enquiry form instead of a booking button (UZH doesn't charge for rooms and
+  wants to keep the right to decline; see `enquiries` table)
+- **Approver dashboard** (`/bookings`) — approve/reject/cancel with a details popup
+- **Admin room management** (`/admin/rooms`) — create/edit rooms, deactivate instead of deleting
+  by default; Super Admins can hard-delete
+- **User role management** (`/admin/users`, Super Admin only)
 
 ## Data & image credits
 
@@ -46,11 +123,13 @@ Accessibility data, capacities and most room photos come from
 [Uniability](https://www.uniability.uzh.ch/de.html)'s per-room pages, which cover 17 of the
 26 rooms (the rest — Lichthofs, the Mensa, BIN Mall, courtyards, and a few combined rooms —
 aren't catalogued there individually). For those, and where a Uniability photo wasn't
-available, the app falls back to the real Campus Culture UZH Lichthof photo or CC-licensed
-academic-space stand-ins from Wikimedia Commons — see each room's `imageCredit` and
-`accessibility.notes` field in `src/lib/rooms.ts` for exactly which is which.
+available, the seed data falls back to the real Campus Culture UZH Lichthof photo or
+CC-licensed academic-space stand-ins from Wikimedia Commons — see each room's `image_credit`
+and `accessibility_notes` in `supabase/migrations/20260916000006_seed_rooms.sql`.
 
 ## Deploying
 
-Deploy to [Vercel](https://vercel.com/new) by importing this GitHub repository — no
-environment variables or backend services are required.
+Deploy to [Vercel](https://vercel.com/new) by importing this GitHub repository, then add the
+same `.env.local` variables as project environment variables. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the plan to move this onto UZH's own Azure
+infrastructure once it's ready to leave the demo stage.

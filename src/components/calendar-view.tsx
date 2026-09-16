@@ -9,24 +9,26 @@ import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { TIME_SLOTS, dateKey, isSlotBooked, getRoomAvailability } from "@/lib/schedule";
+import { TIME_SLOTS, dateKey, isSlotBusy, getRoomAvailability } from "@/lib/schedule";
 import type { Room } from "@/lib/rooms";
+import type { BusySlot } from "@/lib/data/booking-types";
 
 interface CalendarViewProps {
   rooms: Room[];
+  busySlots: BusySlot[];
   onSelectSlot: (room: Room, date: Date, time: string) => void;
   onSelectRoom: (room: Room, date: Date) => void;
 }
 
-export function CalendarView({ rooms, onSelectSlot, onSelectRoom }: CalendarViewProps) {
+export function CalendarView({ rooms, busySlots, onSelectSlot, onSelectRoom }: CalendarViewProps) {
   const [date, setDate] = useState<Date>(new Date());
   const [showAll, setShowAll] = useState(false);
   const key = dateKey(date);
 
   const visibleRooms = useMemo(() => {
     if (showAll) return rooms;
-    return rooms.filter((room) => getRoomAvailability(room.id, key).hasAvailability);
-  }, [rooms, showAll, key]);
+    return rooms.filter((room) => getRoomAvailability(busySlots, room.id, key).hasAvailability);
+  }, [rooms, showAll, key, busySlots]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -137,7 +139,7 @@ export function CalendarView({ rooms, onSelectSlot, onSelectRoom }: CalendarView
                   </button>
                 </td>
                 {TIME_SLOTS.map((time) => {
-                  const booked = isSlotBooked(room.id, key, time);
+                  const booked = isSlotBusy(busySlots, room.id, key, time);
                   return (
                     <td key={time} className="p-1 text-center">
                       <button
