@@ -55,6 +55,33 @@ export async function decideBookingAction(input: {
   return { error: null };
 }
 
+/**
+ * The booker editing their own pending/confirmed booking. If the room
+ * requires approval, this sends it back to pending — see
+ * update_own_booking() for why.
+ */
+export async function updateOwnBookingAction(input: {
+  bookingId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  attendees?: number | null;
+  purpose?: string | null;
+}): Promise<{ error: string | null; status?: BookingStatus }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("update_own_booking", {
+    p_booking_id: input.bookingId,
+    p_date: input.date,
+    p_start_time: input.startTime,
+    p_end_time: input.endTime,
+    p_attendees: input.attendees ?? undefined,
+    p_purpose: input.purpose ?? undefined,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/");
+  return { error: null, status: data?.status };
+}
+
 /** Admin+ only — reschedules someone else's booking (date/time/attendees/purpose). */
 export async function adminUpdateBookingAction(input: {
   bookingId: string;

@@ -494,6 +494,41 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      update_own_booking: {
+        Args: {
+          p_attendees?: number
+          p_booking_id: string
+          p_date: string
+          p_end_time: string
+          p_purpose?: string
+          p_start_time: string
+        }
+        Returns: {
+          attendees: number | null
+          created_at: string
+          date: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          during: unknown
+          end_time: string
+          id: string
+          modified_at: string | null
+          modified_by: string | null
+          purpose: string | null
+          room_id: string
+          start_time: string
+          status: Database["public"]["Enums"]["booking_status"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       booking_status: "pending" | "confirmed" | "rejected" | "cancelled"

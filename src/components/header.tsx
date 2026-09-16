@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, LogOut, Settings, Shield, Users } from "lucide-react";
+import { CalendarDays, LayoutDashboard, LogOut, Settings, Shield, Users } from "lucide-react";
 import { signOut } from "@/actions/auth-actions";
 import { roleLabels, canApprove, canManageRooms, canManageUsers } from "@/lib/roles";
 import type { AppProfile } from "@/lib/data/profile";
@@ -94,6 +94,12 @@ export function Header({ profile }: HeaderProps) {
                   <p className="text-xs text-muted-foreground">{profile.email}</p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/my-bookings" className="flex items-center gap-2">
+                    <CalendarDays className="size-4 text-muted-foreground" />
+                    My bookings
+                  </Link>
+                </DropdownMenuItem>
                 {canApprove(profile.role) && (
                   <DropdownMenuItem asChild>
                     <Link href="/bookings" className="flex items-center gap-2">

@@ -97,31 +97,42 @@ bootstrap query outside of that `set_config` line).
 
 `supabase/functions/send-booking-email` sends a branded HTML email (UZH-blue header, status pill,
 booking details card) for every notifiable event: request received, confirmed, rejected,
-cancelled, and rescheduled by an admin. It's wired up — DB trigger in
-`supabase/migrations/20260916000007_email_webhook.sql` → Edge Function →
-[Resend](https://resend.com) — and the function itself is already deployed. It **needs two things
-to actually send**:
+cancelled, and rescheduled/resubmitted. DB trigger
+(`supabase/migrations/20260916000007_email_webhook.sql`) → Edge Function → [Resend](https://resend.com).
 
-1. Give the function a Resend key (this part can't be done from the SQL editor — it's an Edge
-   Function secret, not a database value):
+**Current status: fully wired and verified working, missing only the Resend API key.** The Vault
+secrets that let the DB trigger call the function are set, the function is deployed, and
+`service_role` has the table grants it needs (see `20260916000013_service_role_privileges.sql` —
+hosted Supabase doesn't auto-grant these to `service_role` any more than it does to
+`anon`/`authenticated`). Editing/approving/rejecting a booking right now correctly logs to
+`email_log` with `status: 'failed'` and `error: 'RESEND_API_KEY not configured'` — that's the one
+remaining step:
+
+1. Create a Resend account and API key (a "UZH Rooms — Supabase Edge Function" sending-access key
+   already exists if you're picking this repo back up — check Resend's API Keys page, or create a
+   new one).
+2. Set it as an Edge Function secret — **this can't be done from the SQL editor or via MCP tools**,
+   it's a Deno environment variable, not a database value. Easiest path is the Supabase Dashboard:
+   Edge Functions → `send-booking-email` → Secrets, and add:
+   ```
+   RESEND_API_KEY=re_...
+   RESEND_FROM_EMAIL=UZH Rooms <onboarding@resend.dev>
+   ```
+   Or via CLI, if you're logged into the account that owns this project:
    ```bash
-   npx supabase functions deploy send-booking-email
-   npx supabase secrets set RESEND_API_KEY=re_... RESEND_FROM_EMAIL="UZH Rooms <you@yourdomain>"
+   npx supabase link --project-ref qwxvsdmxrxbgyhxvgpvg
+   npx supabase secrets set RESEND_API_KEY=re_... RESEND_FROM_EMAIL="UZH Rooms <onboarding@resend.dev>"
    ```
-2. Point the DB trigger at the function (Vault secrets — see the comment at the top of
-   `20260916000007_email_webhook.sql` for the exact `vault.create_secret(...)` calls, local vs.
-   hosted URL). Run this once in the SQL Editor:
-   ```sql
-   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/send-booking-email', 'project_functions_url');
-   select vault.create_secret('<your-anon-key>', 'project_service_role_key');
-   ```
-   The anon/publishable key works fine here — it's only used as the bearer token to invoke the
-   function (which itself uses its own auto-populated service-role key internally), not to grant
-   any extra access.
 
-Without those two steps, bookings still work fine — the trigger just no-ops instead of emailing,
-and nothing is logged as failed. Check `email_log` (readable by Admin+) to see what would have
-been sent, and to whom, once you add the Resend key.
+**Sandbox limitation worth knowing:** without a verified sending domain, Resend only delivers to
+the email address that owns the Resend account itself — not arbitrary recipients, and definitely
+not the fake `@uzh.ch` demo addresses. To see real delivery, either book as an account whose email
+matches your Resend login, or verify a real domain you own (`create-domain` via the Resend MCP
+connector, then add the DNS records it gives you) for unrestricted sending.
+
+Check `email_log` (readable by Admin+) to see what was attempted and to whom, and
+`supabase/functions/send-booking-email/index.ts` for all five templates — rendered previews were
+visually verified during development.
 
 ## What's here
 
@@ -140,6 +151,10 @@ been sent, and to whom, once you add the Resend key.
 - **External visitors** see rooms and accessibility info only — no availability, no calendar,
   and a "contact us" enquiry form instead of a booking button (UZH doesn't charge for rooms and
   wants to keep the right to decline; see `enquiries` table)
+- **My bookings** (`/my-bookings`, any signed-in member) — everything you've booked, with the
+  ability to edit the date/time/attendees or cancel while it's still pending or confirmed;
+  editing a booking in a room that requires approval sends it back to pending, since the prior
+  approval was for the old time
 - **Approver dashboard** (`/bookings`) — approve/reject/cancel with a details popup; Admin+ can
   also reschedule someone else's booking (date/time/attendees/purpose), re-running the same
   double-booking protection as a normal booking and notifying the booker by email

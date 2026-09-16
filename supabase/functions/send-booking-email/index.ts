@@ -304,6 +304,12 @@ function resolveEvent(payload: BookingWebhookPayload): EventType | null {
     if (record.status === "confirmed" || record.status === "rejected" || record.status === "cancelled") {
       return record.status;
     }
+    // A member edited their own already-decided booking, sending it back
+    // to pending for re-approval — same copy as a fresh request works
+    // fine here, it genuinely does need a new decision.
+    if (record.status === "pending") {
+      return "requested";
+    }
     return null;
   }
 
