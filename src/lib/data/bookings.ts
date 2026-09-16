@@ -38,11 +38,23 @@ function rowToBooking(row: any): AppBooking {
   };
 }
 
-/** The signed-in member's own bookings, most recent first. */
+/**
+ * The signed-in user's own bookings, most recent first. Filtered explicitly
+ * by user_id rather than relying on RLS alone — approver+ roles are granted
+ * visibility into *all* bookings at the row level (see getAllBookings), so
+ * without this filter an approver's "My bookings" page would show
+ * everyone's bookings instead of just their own.
+ */
 export async function getMyBookings(supabase: SupabaseClient<Database>): Promise<AppBooking[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from("bookings")
     .select(BOOKING_SELECT)
+    .eq("user_id", user.id)
     .order("date", { ascending: false })
     .order("start_time", { ascending: false });
   if (error) throw error;

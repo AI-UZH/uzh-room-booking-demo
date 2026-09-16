@@ -731,7 +731,7 @@ function RoomDetailDialogBody({
                       onClick={handleQuickBook}
                     >
                       <Sparkles className="size-4" />
-                      Schnellbuchung — 1-click book
+                      Quick book — 1 click, no approval needed
                     </Button>
                     <p className="mt-2 text-center text-[11px] leading-snug text-muted-foreground">
                       Skips approval steps and confirms instantly — ideal for informal meetings.

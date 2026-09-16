@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DemoAccountsMenu } from "@/components/demo-accounts-menu";
 import { signUpWithPassword } from "@/actions/auth-actions";
 
 export function SignupForm() {
@@ -36,6 +37,13 @@ export function SignupForm() {
         <p className="text-sm text-muted-foreground">
           We&apos;ve sent a confirmation link to {email}. Follow it to activate your account.
         </p>
+        <div className="mt-3 w-full rounded-lg border border-dashed border-border bg-secondary/30 p-3">
+          <p className="text-xs text-muted-foreground">
+            Email delivery in this demo can be slow or occasionally not arrive. Don&apos;t want to
+            wait? Explore right now with an instant demo account instead — no email required.
+          </p>
+          <DemoAccountsMenu currentRole="external" triggerClassName="mt-2 w-full justify-center" />
+        </div>
       </div>
     );
   }

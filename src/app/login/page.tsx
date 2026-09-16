@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { LoginForm } from "@/components/auth/login-form";
+import { DemoAccountsMenu } from "@/components/demo-accounts-menu";
 
 export default function LoginPage() {
   return (
@@ -16,6 +17,12 @@ export default function LoginPage() {
         </>
       }
     >
+      <div className="mb-5 flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-secondary/30 p-3 text-center">
+        <p className="text-xs text-muted-foreground">
+          Don&apos;t have a UZH account? Try the showcase instantly with a demo account.
+        </p>
+        <DemoAccountsMenu currentRole="external" />
+      </div>
       <LoginForm />
     </AuthCard>
   );

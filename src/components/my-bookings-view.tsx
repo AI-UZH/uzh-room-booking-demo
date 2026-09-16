@@ -37,6 +37,7 @@ export function MyBookingsView({ initialBookings }: MyBookingsViewProps) {
   const router = useRouter();
   const [bookings, setBookings] = useState(initialBookings);
   const [editing, setEditing] = useState<AppBooking | null>(null);
+  const [cancelling, setCancelling] = useState<AppBooking | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   const sorted = useMemo(
@@ -53,6 +54,7 @@ export function MyBookingsView({ initialBookings }: MyBookingsViewProps) {
     setPendingId(booking.id);
     const { error } = await cancelBookingAction(booking.id);
     setPendingId(null);
+    setCancelling(null);
     if (error) {
       toast.error("Couldn't cancel that booking", { description: error });
       return;
@@ -160,7 +162,7 @@ export function MyBookingsView({ initialBookings }: MyBookingsViewProps) {
                           variant="ghost"
                           aria-label="Cancel booking"
                           disabled={pendingId === b.id}
-                          onClick={() => void cancel(b)}
+                          onClick={() => setCancelling(b)}
                         >
                           <X className="size-4" />
                         </Button>
@@ -180,6 +182,35 @@ export function MyBookingsView({ initialBookings }: MyBookingsViewProps) {
         onOpenChange={(open) => !open && setEditing(null)}
         onSave={saveEdit}
       />
+
+      <Dialog open={!!cancelling} onOpenChange={(open) => !open && setCancelling(null)}>
+        <DialogContent className="sm:max-w-sm">
+          {cancelling && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Cancel this booking?</DialogTitle>
+                <DialogDescription>
+                  {cancelling.roomName} on {format(parseISO(cancelling.date), "d MMM yyyy")},{" "}
+                  {cancelling.startTime}–{cancelling.endTime}. This can&apos;t be undone — you&apos;d
+                  need to book the room again from scratch.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-2">
+                <Button variant="ghost" onClick={() => setCancelling(null)}>
+                  Keep booking
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={pendingId === cancelling.id}
+                  onClick={() => void cancel(cancelling)}
+                >
+                  {pendingId === cancelling.id ? "Cancelling…" : "Yes, cancel it"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
