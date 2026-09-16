@@ -10,25 +10,59 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { TIME_SLOTS, dateKey, isSlotBusy, getRoomAvailability } from "@/lib/schedule";
-import type { Room } from "@/lib/rooms";
+import { FilterPillGroup } from "@/components/filter-pill-group";
+import { capacityBucket, type Room, type RoomType } from "@/lib/rooms";
+import type { CapacityFilter } from "@/components/filters-panel";
 import type { BusySlot } from "@/lib/data/booking-types";
+
+const capacityOptions: { value: CapacityFilter; label: string }[] = [
+  { value: "all", label: "Any capacity" },
+  { value: "lt50", label: "< 50" },
+  { value: "mid", label: "50 – 100" },
+  { value: "gt100", label: "> 100" },
+];
 
 interface CalendarViewProps {
   rooms: Room[];
   busySlots: BusySlot[];
   onSelectSlot: (room: Room, date: Date, time: string) => void;
   onSelectRoom: (room: Room, date: Date) => void;
+  roomTypes: RoomType[];
+  roomTypeSlug: string;
+  onRoomTypeChange: (value: string) => void;
+  capacity: CapacityFilter;
+  onCapacityChange: (value: CapacityFilter) => void;
 }
 
-export function CalendarView({ rooms, busySlots, onSelectSlot, onSelectRoom }: CalendarViewProps) {
+export function CalendarView({
+  rooms,
+  busySlots,
+  onSelectSlot,
+  onSelectRoom,
+  roomTypes,
+  roomTypeSlug,
+  onRoomTypeChange,
+  capacity,
+  onCapacityChange,
+}: CalendarViewProps) {
   const [date, setDate] = useState<Date>(new Date());
   const [showAll, setShowAll] = useState(false);
   const key = dateKey(date);
 
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((room) => {
+      if (roomTypeSlug !== "all" && room.roomType?.slug !== roomTypeSlug) return false;
+      if (capacity !== "all" && capacityBucket(room.capacity) !== capacity) return false;
+      return true;
+    });
+  }, [rooms, roomTypeSlug, capacity]);
+
   const visibleRooms = useMemo(() => {
-    if (showAll) return rooms;
-    return rooms.filter((room) => getRoomAvailability(busySlots, room.id, key).hasAvailability);
-  }, [rooms, showAll, key, busySlots]);
+    if (showAll) return filteredRooms;
+    return filteredRooms.filter(
+      (room) => getRoomAvailability(busySlots, room.id, key).hasAvailability,
+    );
+  }, [filteredRooms, showAll, key, busySlots]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -88,10 +122,29 @@ export function CalendarView({ rooms, busySlots, onSelectSlot, onSelectRoom }: C
         </div>
       </div>
 
+      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <FilterPillGroup
+          label="Room type"
+          value={roomTypeSlug}
+          onChange={onRoomTypeChange}
+          options={[
+            { value: "all", label: "All types" },
+            ...roomTypes.map((rt) => ({ value: rt.slug, label: rt.name })),
+          ]}
+        />
+        <FilterPillGroup
+          label="Capacity"
+          value={capacity}
+          onChange={(v) => onCapacityChange(v as CapacityFilter)}
+          options={capacityOptions}
+        />
+      </div>
+
       {!showAll && (
         <p className="text-xs text-muted-foreground">
           Showing rooms with at least one free slot on {format(date, "d MMM")} — {visibleRooms.length}{" "}
-          of {rooms.length} rooms. Turn on &ldquo;Show all rooms&rdquo; to see fully booked ones too.
+          of {filteredRooms.length} rooms. Turn on &ldquo;Show all rooms&rdquo; to see fully booked
+          ones too.
         </p>
       )}
 

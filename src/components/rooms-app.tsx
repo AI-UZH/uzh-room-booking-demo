@@ -5,13 +5,19 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { SearchX } from "lucide-react";
 import { Header } from "@/components/header";
-import { FiltersPanel, type CapacityFilter } from "@/components/filters-panel";
+import { FiltersPanel, type CapacityFilter, type RoomView } from "@/components/filters-panel";
 import { RoomCard } from "@/components/room-card";
+import { RoomListItem } from "@/components/room-list-item";
 import { RoomDetailDialog } from "@/components/room-detail-dialog";
 import { CalendarView } from "@/components/calendar-view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { capacityBucket, type Building, type Room, type RoomType } from "@/lib/rooms";
 import { dateKey, getRoomAvailability } from "@/lib/schedule";
+import {
+  DEFAULT_ACCESSIBILITY_FILTER,
+  matchesAccessibilityFilter,
+  type AccessibilityFilter,
+} from "@/lib/accessibility-filter";
 import type { AppProfile } from "@/lib/data/profile";
 import type { BusySlot } from "@/lib/data/booking-types";
 import { getBusySlots } from "@/lib/data/bookings";
@@ -36,6 +42,10 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
   const [minAttendees, setMinAttendees] = useState("");
   const [browseDate, setBrowseDate] = useState<Date>(new Date());
   const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [accessibility, setAccessibility] = useState<AccessibilityFilter>(
+    DEFAULT_ACCESSIBILITY_FILTER,
+  );
+  const [roomView, setRoomView] = useState<RoomView>("grid");
   const [view, setView] = useState<"grid" | "calendar">("grid");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -82,6 +92,7 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
       if (capacity !== "all" && capacityBucket(room.capacity) !== capacity) return false;
       if (building !== "all" && room.building !== building) return false;
       if (roomTypeSlug !== "all" && room.roomType?.slug !== roomTypeSlug) return false;
+      if (!matchesAccessibilityFilter(room, accessibility)) return false;
       if (
         !isExternal &&
         onlyAvailable &&
@@ -110,6 +121,7 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
     capacity,
     building,
     roomTypeSlug,
+    accessibility,
     search,
     minAttendees,
     onlyAvailable,
@@ -202,8 +214,12 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
               onDateChange={setBrowseDate}
               onlyAvailable={onlyAvailable}
               onOnlyAvailableChange={setOnlyAvailable}
+              accessibility={accessibility}
+              onAccessibilityChange={setAccessibility}
               resultCount={filteredRooms.length}
               showAvailability={!isExternal}
+              view={roomView}
+              onViewChange={setRoomView}
             />
 
             {filteredRooms.length === 0 ? (
@@ -215,10 +231,23 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
                   location.
                 </p>
               </div>
-            ) : (
+            ) : roomView === "grid" ? (
               <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredRooms.map((room) => (
                   <RoomCard
+                    key={room.id}
+                    room={room}
+                    availability={
+                      isExternal ? undefined : getRoomAvailability(busySlots, room.id, browseDateKey)
+                    }
+                    onSelect={handleSelect}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-3">
+                {filteredRooms.map((room) => (
+                  <RoomListItem
                     key={room.id}
                     room={room}
                     availability={
@@ -238,6 +267,11 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
                 busySlots={busySlots}
                 onSelectSlot={handleSelectSlot}
                 onSelectRoom={handleSelectRoomFromCalendar}
+                roomTypes={roomTypes}
+                roomTypeSlug={roomTypeSlug}
+                onRoomTypeChange={setRoomTypeSlug}
+                capacity={capacity}
+                onCapacityChange={setCapacity}
               />
             </TabsContent>
           )}
