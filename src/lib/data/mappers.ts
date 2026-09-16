@@ -34,7 +34,7 @@ export function dbRoomToRoom(row: RoomJoinRow): Room {
       reservedWheelchairSeats: row.reserved_wheelchair_seats ?? undefined,
       notes: row.accessibility_notes ?? undefined,
     },
-    accessibilityDetails: row.accessibility_details ?? undefined,
+    accessibilityDetails: (row.accessibility_details as Record<string, string> | null) ?? undefined,
     amenities: {
       seatingStyle: row.seating_style as SeatingStyle[],
       projector: row.has_projector,

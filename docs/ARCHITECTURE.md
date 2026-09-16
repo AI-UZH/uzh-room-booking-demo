@@ -110,14 +110,15 @@ Worth doing before this goes past a demo, roughly in priority order:
 
 1. **Automated tests** — the SQL was validated manually against a throwaway local Postgres
    instance during development; there's no CI-run test suite yet.
-2. **Booking edit-by-admin** (reschedule someone else's booking) — approvers can approve/reject/
-   cancel, but not change the date/time/attendees of an existing booking. Would need a new RPC
-   with its own authorization rule (probably: admin+ only, and it should re-run the overlap
-   check).
-3. **Image uploads** for admin-managed rooms — right now `image_url` is just a text field
+2. **Image uploads** for admin-managed rooms — right now `image_url` is just a text field
    pointing at a static asset; a real upload flow needs Supabase Storage (or Blob Storage) wired
    through the same data-layer pattern as everything else.
-4. **Audit trail** beyond `decided_by`/`decided_at` — a `booking_events` table recording every
-   status transition, not just the latest one, if UZH wants a full history for disputes.
-5. **Rate limiting / abuse prevention** on the external enquiry form and sign-up (currently open
+3. **Audit trail** beyond `decided_by`/`decided_at`/`modified_by`/`modified_at` — a
+   `booking_events` table recording every status transition and edit, not just the latest one, if
+   UZH wants a full history for disputes.
+4. **Rate limiting / abuse prevention** on the external enquiry form and sign-up (currently open
    to anyone with an email address — fine for a demo, not for production).
+
+Done since the table above was first written: **booking edit-by-admin** — `admin_update_booking()`
+(`supabase/migrations/20260916000011_admin_booking_edit.sql`) lets Admin+ reschedule someone
+else's booking, admin-only and re-running the same overlap check as `create_booking()`.

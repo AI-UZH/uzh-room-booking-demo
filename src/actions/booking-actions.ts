@@ -19,8 +19,8 @@ export async function createBookingAction(input: {
     p_date: input.date,
     p_start_time: input.startTime,
     p_end_time: input.endTime,
-    p_attendees: input.attendees ?? null,
-    p_purpose: input.purpose ?? null,
+    p_attendees: input.attendees ?? undefined,
+    p_purpose: input.purpose ?? undefined,
     p_instant: input.instant ?? false,
   });
   if (error) return { error: error.message };
@@ -48,7 +48,30 @@ export async function decideBookingAction(input: {
   const { error } = await supabase.rpc("decide_booking", {
     p_booking_id: input.bookingId,
     p_status: input.status,
-    p_note: input.note ?? null,
+    p_note: input.note ?? undefined,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/");
+  return { error: null };
+}
+
+/** Admin+ only — reschedules someone else's booking (date/time/attendees/purpose). */
+export async function adminUpdateBookingAction(input: {
+  bookingId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  attendees?: number | null;
+  purpose?: string | null;
+}): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_update_booking", {
+    p_booking_id: input.bookingId,
+    p_date: input.date,
+    p_start_time: input.startTime,
+    p_end_time: input.endTime,
+    p_attendees: input.attendees ?? undefined,
+    p_purpose: input.purpose ?? undefined,
   });
   if (error) return { error: error.message };
   revalidatePath("/");

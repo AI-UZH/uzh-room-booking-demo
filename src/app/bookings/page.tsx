@@ -23,7 +23,7 @@ export default async function BookingsPage() {
           Approve, reject, or cancel booking requests across all rooms.
         </p>
         <div className="mt-6">
-          <ApproverDashboard initialBookings={bookings} />
+          <ApproverDashboard initialBookings={bookings} viewerRole={profile.role} />
         </div>
       </main>
     </div>

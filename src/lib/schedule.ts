@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import type { BusySlot } from "@/lib/data/booking-types";
 
 export const TIME_SLOTS = [
@@ -34,8 +35,14 @@ export function nextBoundary(time: string): string | undefined {
   return TIME_BOUNDARIES[i + 1];
 }
 
+/**
+ * Local-calendar-day key, e.g. "2026-09-16" — NOT `date.toISOString()`,
+ * which converts to UTC first and silently rolls the date back by one
+ * for any viewer west of UTC (a real bug this once had: editing a
+ * booking without touching the date picker still shifted it a day).
+ */
 export function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return format(date, "yyyy-MM-dd");
 }
 
 export function isSlotBusy(busySlots: BusySlot[], roomId: string, date: string, time: string): boolean {

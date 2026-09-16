@@ -16,6 +16,7 @@ import { LayoutDashboard, LogOut, Settings, Shield, Users } from "lucide-react";
 import { signOut } from "@/actions/auth-actions";
 import { roleLabels, canApprove, canManageRooms, canManageUsers } from "@/lib/roles";
 import type { AppProfile } from "@/lib/data/profile";
+import { DemoAccountsMenu } from "@/components/demo-accounts-menu";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -55,6 +56,7 @@ export function Header({ profile }: HeaderProps) {
         </Link>
 
         <div className="flex items-center gap-3">
+          <DemoAccountsMenu currentRole={profile?.role ?? "external"} />
           {!profile ? (
             <div className="flex items-center gap-2">
               <Button variant="ghost" asChild>

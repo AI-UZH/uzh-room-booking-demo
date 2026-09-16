@@ -31,6 +31,25 @@ Rooms carry a `requires_approval` flag — lecture halls, seminar rooms and meet
 auto-confirm; everything else (Aula, Lichthof, Mensa, …) routes to an Approver. See
 `supabase/migrations/20260916000006_seed_rooms.sql` for which is which.
 
+### Try every role
+
+Click **Demo access** in the header (visible whether you're signed in or not) to log into any
+role in one click — it lists what each one can do and its credentials. The same accounts,
+for reference:
+
+| Role | Email | Password |
+|---|---|---|
+| Member | `demo.member@uzh.ch` | `DemoPassword123!` |
+| Approver | `demo.approver@uzh.ch` | `DemoPassword123!` |
+| Admin | `demo.admin@uzh.ch` | `DemoPassword123!` |
+| Super Admin | `demo.super@uzh.ch` | `DemoPassword123!` |
+
+These are seeded directly in `auth.users`/`profiles` (see `src/lib/demo-accounts.ts` for the
+single source of truth the header menu reads from) — not real people, and this is a public demo,
+so the password is intentionally the same across all four and shown in the UI. If you reset the
+database, re-create them with the same sign-up + `admin_set_user_role`-style bootstrap used for
+the first Super Admin above.
+
 ## Getting started
 
 You need a Supabase backend — either a **local** one (via the Supabase CLI + Docker, no account
@@ -76,22 +95,33 @@ bootstrap query outside of that `set_config` line).
 
 ## Email notifications
 
-`supabase/functions/send-booking-email` emails the booker when a booking is created, approved,
-rejected or cancelled. It's wired up (DB trigger in
-`supabase/migrations/20260916000007_email_webhook.sql` → Edge Function → 
-[Resend](https://resend.com)) but **needs two things to actually send**:
+`supabase/functions/send-booking-email` sends a branded HTML email (UZH-blue header, status pill,
+booking details card) for every notifiable event: request received, confirmed, rejected,
+cancelled, and rescheduled by an admin. It's wired up — DB trigger in
+`supabase/migrations/20260916000007_email_webhook.sql` → Edge Function →
+[Resend](https://resend.com) — and the function itself is already deployed. It **needs two things
+to actually send**:
 
-1. Deploy the function and give it a Resend key:
+1. Give the function a Resend key (this part can't be done from the SQL editor — it's an Edge
+   Function secret, not a database value):
    ```bash
    npx supabase functions deploy send-booking-email
    npx supabase secrets set RESEND_API_KEY=re_... RESEND_FROM_EMAIL="UZH Rooms <you@yourdomain>"
    ```
-2. Point the DB trigger at it (Vault secrets — see the comment at the top of
+2. Point the DB trigger at the function (Vault secrets — see the comment at the top of
    `20260916000007_email_webhook.sql` for the exact `vault.create_secret(...)` calls, local vs.
-   hosted URL).
+   hosted URL). Run this once in the SQL Editor:
+   ```sql
+   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/send-booking-email', 'project_functions_url');
+   select vault.create_secret('<your-anon-key>', 'project_service_role_key');
+   ```
+   The anon/publishable key works fine here — it's only used as the bearer token to invoke the
+   function (which itself uses its own auto-populated service-role key internally), not to grant
+   any extra access.
 
 Without those two steps, bookings still work fine — the trigger just no-ops instead of emailing,
-and nothing is logged as failed.
+and nothing is logged as failed. Check `email_log` (readable by Admin+) to see what would have
+been sent, and to whom, once you add the Resend key.
 
 ## What's here
 
@@ -110,7 +140,9 @@ and nothing is logged as failed.
 - **External visitors** see rooms and accessibility info only — no availability, no calendar,
   and a "contact us" enquiry form instead of a booking button (UZH doesn't charge for rooms and
   wants to keep the right to decline; see `enquiries` table)
-- **Approver dashboard** (`/bookings`) — approve/reject/cancel with a details popup
+- **Approver dashboard** (`/bookings`) — approve/reject/cancel with a details popup; Admin+ can
+  also reschedule someone else's booking (date/time/attendees/purpose), re-running the same
+  double-booking protection as a normal booking and notifying the booker by email
 - **Admin room management** (`/admin/rooms`) — create/edit rooms, deactivate instead of deleting
   by default; Super Admins can hard-delete
 - **User role management** (`/admin/users`, Super Admin only)

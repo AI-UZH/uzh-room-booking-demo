@@ -21,6 +21,8 @@ export interface AppBooking {
   decidedByName: string | null;
   decidedAt: string | null;
   decisionNote: string | null;
+  modifiedByName: string | null;
+  modifiedAt: string | null;
   createdAt: string;
 }
 

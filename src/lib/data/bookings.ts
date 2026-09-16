@@ -4,10 +4,11 @@ import type { AppBooking, BusySlot } from "@/lib/data/booking-types";
 
 const BOOKING_SELECT = `
   id, room_id, date, start_time, end_time, attendees, purpose, status,
-  decided_at, decision_note, created_at,
+  decided_at, decision_note, modified_at, created_at,
   rooms ( name, code, capacity, buildings ( name, campus, address ) ),
   booker:profiles!bookings_user_id_fkey ( full_name, email ),
-  decider:profiles!bookings_decided_by_fkey ( full_name )
+  decider:profiles!bookings_decided_by_fkey ( full_name ),
+  modifier:profiles!bookings_modified_by_fkey ( full_name )
 `;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,6 +32,8 @@ function rowToBooking(row: any): AppBooking {
     decidedByName: row.decider?.full_name ?? null,
     decidedAt: row.decided_at,
     decisionNote: row.decision_note,
+    modifiedByName: row.modifier?.full_name ?? null,
+    modifiedAt: row.modified_at,
     createdAt: row.created_at,
   };
 }
@@ -77,9 +80,9 @@ export async function getBusySlots(
   });
   if (error) throw error;
   return (data ?? []).map((r) => ({
-    roomId: r.room_id,
-    date: r.date,
-    startTime: r.start_time.slice(0, 5),
-    endTime: r.end_time.slice(0, 5),
+    roomId: r.room_id!,
+    date: r.date!,
+    startTime: r.start_time!.slice(0, 5),
+    endTime: r.end_time!.slice(0, 5),
   }));
 }

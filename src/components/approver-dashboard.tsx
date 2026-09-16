@@ -4,16 +4,20 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { CalendarCheck2, Clock, Eye, ShieldAlert, X } from "lucide-react";
+import { CalendarCheck2, CalendarIcon, Clock, Eye, PenLine, ShieldAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Table,
   TableBody,
@@ -22,18 +26,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { decideBookingAction, cancelBookingAction } from "@/actions/booking-actions";
+import { decideBookingAction, cancelBookingAction, adminUpdateBookingAction } from "@/actions/booking-actions";
+import { canManageRooms } from "@/lib/roles";
+import { TIME_BOUNDARIES, nextBoundary, dateKey } from "@/lib/schedule";
+import { cn } from "@/lib/utils";
 import type { AppBooking } from "@/lib/data/booking-types";
+import type { ViewerRole } from "@/lib/roles";
 
 interface ApproverDashboardProps {
   initialBookings: AppBooking[];
+  viewerRole: ViewerRole;
 }
 
-export function ApproverDashboard({ initialBookings }: ApproverDashboardProps) {
+export function ApproverDashboard({ initialBookings, viewerRole }: ApproverDashboardProps) {
   const router = useRouter();
   const [bookings, setBookings] = useState(initialBookings);
   const [viewing, setViewing] = useState<AppBooking | null>(null);
+  const [editing, setEditing] = useState<AppBooking | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const canEdit = canManageRooms(viewerRole);
 
   const pendingCount = bookings.filter((b) => b.status === "pending").length;
   const confirmedCount = bookings.filter((b) => b.status === "confirmed").length;
@@ -73,6 +84,40 @@ export function ApproverDashboard({ initialBookings }: ApproverDashboardProps) {
       prev.map((b) => (b.id === booking.id ? { ...b, status: "cancelled" } : b)),
     );
     toast("Booking cancelled");
+    router.refresh();
+  };
+
+  const saveEdit = async (input: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    attendees: number | null;
+    purpose: string | null;
+  }) => {
+    if (!editing) return;
+    setPendingId(editing.id);
+    const { error } = await adminUpdateBookingAction({ bookingId: editing.id, ...input });
+    setPendingId(null);
+    if (error) {
+      toast.error("Couldn't reschedule that booking", { description: error });
+      return;
+    }
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === editing.id
+          ? {
+              ...b,
+              date: input.date,
+              startTime: input.startTime,
+              endTime: input.endTime,
+              attendees: input.attendees,
+              purpose: input.purpose,
+            }
+          : b,
+      ),
+    );
+    setEditing(null);
+    toast.success("Booking rescheduled");
     router.refresh();
   };
 
@@ -151,6 +196,17 @@ export function ApproverDashboard({ initialBookings }: ApproverDashboardProps) {
                       >
                         <Eye className="size-4" />
                       </Button>
+                      {canEdit && (b.status === "pending" || b.status === "confirmed") && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Reschedule booking"
+                          disabled={pendingId === b.id}
+                          onClick={() => setEditing(b)}
+                        >
+                          <PenLine className="size-4" />
+                        </Button>
+                      )}
                       {(b.status === "pending" || b.status === "confirmed") && (
                         <Button
                           size="icon-sm"
@@ -194,12 +250,193 @@ export function ApproverDashboard({ initialBookings }: ApproverDashboardProps) {
                 {viewing.decidedByName && (
                   <DetailRow label="Decided by" value={viewing.decidedByName} />
                 )}
+                {viewing.modifiedByName && (
+                  <DetailRow label="Rescheduled by" value={viewing.modifiedByName} />
+                )}
               </dl>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      <EditBookingDialog
+        booking={editing}
+        saving={!!editing && pendingId === editing.id}
+        onOpenChange={(open) => !open && setEditing(null)}
+        onSave={saveEdit}
+      />
     </div>
+  );
+}
+
+interface EditBookingDialogProps {
+  booking: AppBooking | null;
+  saving: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (input: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    attendees: number | null;
+    purpose: string | null;
+  }) => void;
+}
+
+function EditBookingDialog({ booking, saving, onOpenChange, onSave }: EditBookingDialogProps) {
+  return (
+    <Dialog open={!!booking} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-sm">
+        {booking && (
+          <EditBookingForm
+            key={booking.id}
+            booking={booking}
+            saving={saving}
+            onSave={onSave}
+            onCancel={() => onOpenChange(false)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditBookingForm({
+  booking,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  booking: AppBooking;
+  saving: boolean;
+  onSave: EditBookingDialogProps["onSave"];
+  onCancel: () => void;
+}) {
+  const [date, setDate] = useState<Date>(parseISO(booking.date));
+  const [startTime, setStartTime] = useState(booking.startTime);
+  const [endTime, setEndTime] = useState(booking.endTime);
+  const [attendees, setAttendees] = useState(booking.attendees != null ? String(booking.attendees) : "");
+  const [purpose, setPurpose] = useState(booking.purpose ?? "");
+
+  const endTimeOptions = TIME_BOUNDARIES.filter((t) => t > startTime);
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Reschedule booking</DialogTitle>
+        <DialogDescription>
+          {booking.roomName} · booked by {booking.bookedByName || booking.bookedByEmail}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Date</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start gap-2 font-normal">
+                <CalendarIcon className="size-4 text-muted-foreground" />
+                {format(date, "EEE, d MMM yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} autoFocus />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Start time
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {TIME_BOUNDARIES.slice(0, -1).map((time) => (
+                <button
+                  key={time}
+                  type="button"
+                  onClick={() => {
+                    setStartTime(time);
+                    setEndTime((prev) => (prev > time ? prev : nextBoundary(time) ?? prev));
+                  }}
+                  className={cn(
+                    "rounded-md border px-2 py-1.5 text-xs font-medium transition-colors",
+                    startTime === time
+                      ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
+                      : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
+                  )}
+                >
+                  {time}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              End time
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {endTimeOptions.map((time) => (
+                <button
+                  key={time}
+                  type="button"
+                  onClick={() => setEndTime(time)}
+                  className={cn(
+                    "rounded-md border px-2 py-1.5 text-xs font-medium transition-colors",
+                    endTime === time
+                      ? "border-[var(--uzh-blue)] bg-[var(--uzh-blue)] text-white"
+                      : "border-input bg-white text-foreground hover:border-[var(--uzh-blue)]/50 hover:bg-accent",
+                  )}
+                >
+                  {time}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Attendees (optional)
+          </label>
+          <Input
+            type="number"
+            min={1}
+            max={booking.capacity}
+            value={attendees}
+            onChange={(e) => setAttendees(e.target.value)}
+            placeholder={`Up to ${booking.capacity}`}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Purpose (optional)
+          </label>
+          <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="e.g. Team offsite" />
+        </div>
+      </div>
+
+      <DialogFooter className="mt-2">
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          className="bg-[var(--uzh-blue)] hover:bg-[var(--uzh-blue)]/90"
+          disabled={saving}
+          onClick={() =>
+            onSave({
+              date: dateKey(date),
+              startTime,
+              endTime,
+              attendees: attendees.trim() ? Number(attendees) : null,
+              purpose: purpose.trim() || null,
+            })
+          }
+        >
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 
