@@ -101,30 +101,24 @@ cancelled, and rescheduled/resubmitted. DB trigger
 (`supabase/migrations/20260916000007_email_webhook.sql`) → Edge Function → Gmail SMTP relay (via
 [Nodemailer](https://nodemailer.com)).
 
-**Current status: fully wired and verified working, missing only the Gmail credentials.** The
-Vault secrets that let the DB trigger call the function are set, the function is deployed, and
-`service_role` has the table grants it needs (see `20260916000013_service_role_privileges.sql` —
-hosted Supabase doesn't auto-grant these to `service_role` any more than it does to
-`anon`/`authenticated`). Editing/approving/rejecting a booking right now correctly logs to
-`email_log` with `status: 'failed'` and `error: 'GMAIL_USER/GMAIL_APP_PASSWORD not configured'` —
-that's the one remaining step.
-
-This used to run on [Resend](https://resend.com), but Resend requires a verified custom sending
-domain to deliver to arbitrary recipients, and this project has no domain of its own — a plain
+**Current status: fully wired, credentials configured, verified working end-to-end** (both this
+pipeline and Supabase Auth's own signup/reset emails — see `email_log`, `status: 'sent'`). This
+used to run on [Resend](https://resend.com), but Resend requires a verified custom sending domain
+to deliver to arbitrary recipients, and this project has no domain of its own — a plain
 `@gmail.com` address can never be verified as one either (Google owns that domain). Sending
 straight through Gmail's own SMTP relay sidesteps the whole problem: no domain needed, any
 recipient works.
 
+If you're standing this up fresh (a new Gmail account, a forked repo, etc.), the function needs
+two Edge Function secrets — **not something to set from the SQL editor, via MCP tools, or by
+handing a password to an agent**, it's a Deno environment variable, not a database value:
+
 1. Get a Gmail App Password for the sending account (**not** the account's normal login password —
-   Google requires a separate 16-character app password for SMTP):
-   - Turn on 2-Step Verification on the Google account, if it isn't already
-     ([myaccount.google.com/security](https://myaccount.google.com/security)).
-   - Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create
-     one (any name, e.g. "UZH Rooms"), and copy the 16-character password it gives you.
-2. Set it as an Edge Function secret — **this can't be done from the SQL editor or via MCP tools**,
-   it's a Deno environment variable, not a database value, and Claude/an agent should never be
-   asked to type a password into a field on your behalf. Easiest path is the Supabase Dashboard:
-   Edge Functions → `send-booking-email` → Secrets, and add:
+   Google requires a separate 16-character app password for SMTP): turn on 2-Step Verification if
+   it isn't already ([myaccount.google.com/security](https://myaccount.google.com/security)), then
+   create one at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+2. Set it as an Edge Function secret via the Supabase Dashboard (Edge Functions →
+   `send-booking-email` → Secrets):
    ```
    GMAIL_USER=you@gmail.com
    GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
@@ -135,10 +129,30 @@ recipient works.
    npx supabase link --project-ref qwxvsdmxrxbgyhxvgpvg
    npx supabase secrets set GMAIL_USER=you@gmail.com GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
    ```
+   Takes effect immediately — no redeploy needed. (Separately, Supabase Auth's *own* mailer —
+   signup confirmation, password reset — has its own low-volume built-in limit; point it at the
+   same Gmail account under Auth → SMTP Settings in the Dashboard if you hit it, which also raises
+   the rate limit from 2/hour to 30/hour.)
+
+**Calendar invites.** Every email except the very first "pending approval" one (nothing's
+reserved yet, so nothing to calendar) carries a `booking.ics` attachment — one standard iCalendar
+(RFC 5545) file, not separate "Outlook" and "Google" formats; both, plus Apple Calendar, open the
+same file natively. Confirmed/rescheduled bookings send `METHOD:REQUEST` (native Accept/Decline UI
+in Outlook/Gmail); a cancelled booking sends `METHOD:CANCEL` on the same UID (`booking-<id>`), so a
+calendar client that recognises it removes the earlier entry instead of leaving a stale one. This
+isn't full two-way calendar sync — the recipient re-opens each email's attachment rather than
+having their calendar update itself silently — but every lifecycle email's attachment reflects the
+booking's current state, which covers the demo's needs without needing a real calendar API
+integration (Google Calendar API / Microsoft Graph) per recipient.
+
+What's in the email: room, location, date/time, attendees, and — if the booker filled in "What's
+this for?" or the optional "Full event request" section (mirrors Campus Culture's own room request
+form) — the purpose/title, and a sectioned breakdown of event type, organizer/billing address,
+contact person, audience, catering, and the Code of Conduct links, exactly as submitted.
 
 Check `email_log` (readable by Admin+) to see what was attempted and to whom, and
-`supabase/functions/send-booking-email/index.ts` for all five templates — rendered previews were
-visually verified during development.
+`supabase/functions/send-booking-email/index.ts` for all five templates plus the `.ics` builder —
+rendered previews were visually verified during development.
 
 ## What's here
 

@@ -160,6 +160,7 @@ function RoomDetailDialogBody({
     initialStartTime ? nextBoundary(initialStartTime) ?? null : null,
   );
   const [attendees, setAttendees] = useState("");
+  const [purpose, setPurpose] = useState("");
   const [eventRequest, setEventRequest] = useState<EventRequestDetails>(() => {
     const { firstName, lastName } = splitFullName(profile?.fullName ?? null);
     return {
@@ -197,6 +198,7 @@ function RoomDetailDialogBody({
       startTime: start,
       endTime: end,
       attendees: attendees.trim() ? Number(attendees) : null,
+      purpose: purpose.trim() || null,
       instant,
       eventRequest: isEventRequestStarted(eventRequest) ? eventRequest : null,
     });
@@ -703,6 +705,20 @@ function RoomDetailDialogBody({
                           Pick a start time first
                         </p>
                       )}
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        What&apos;s this for? (optional)
+                      </label>
+                      <Input
+                        value={purpose}
+                        onChange={(e) => setPurpose(e.target.value)}
+                        placeholder="e.g. Team offsite, Thesis defense"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Used as the title on your confirmation email and calendar invite.
+                      </p>
                     </div>
 
                     <div className="mt-4">

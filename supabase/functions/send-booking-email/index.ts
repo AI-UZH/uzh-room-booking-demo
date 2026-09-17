@@ -77,6 +77,7 @@ interface BookingRow {
   status: BookingStatus;
   decision_note: string | null;
   attendees: number | null;
+  purpose: string | null;
   modified_at: string | null;
   event_request: EventRequestDetails | null;
 }
@@ -108,16 +109,146 @@ const transporter =
       })
     : null;
 
-async function sendEmail(to: string, subject: string, html: string): Promise<{ error?: string }> {
+interface IcsAttachment {
+  filename: string;
+  method: "REQUEST" | "CANCEL";
+  content: string;
+}
+
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  ics?: IcsAttachment,
+): Promise<{ error?: string }> {
   if (!transporter) {
     return { error: "GMAIL_USER/GMAIL_APP_PASSWORD not configured — skipping send (logged only)" };
   }
   try {
-    await transporter.sendMail({ from: SMTP_FROM_EMAIL, to, subject, html });
+    await transporter.sendMail({
+      from: SMTP_FROM_EMAIL,
+      to,
+      subject,
+      html,
+      icalEvent: ics,
+    });
     return {};
   } catch (err) {
     return { error: `Gmail SMTP error: ${err instanceof Error ? err.message : String(err)}` };
   }
+}
+
+// ---------------------------------------------------------------------
+// Calendar invites — a single .ics file attached to lifecycle emails so
+// the recipient can save the booking straight into Outlook, Google
+// Calendar, or Apple Calendar. Standard iCalendar (RFC 5545): there's no
+// separate "Outlook format" vs "Google format", one file works for all
+// three. `nodemailer`'s `icalEvent` option sends it the way calendar
+// clients expect for a true invite (native Accept/Decline UI) — using
+// METHOD:REQUEST for an active booking and METHOD:CANCEL when it's
+// cancelled/rejected, both keyed to the same UID (the booking id) so a
+// client that recognises the UID can update/remove the earlier entry
+// instead of just adding a duplicate. This isn't full two-way calendar
+// sync — the recipient still has to open each email's attachment — but
+// it means every lifecycle email carries a calendar file reflecting the
+// booking's current state.
+// ---------------------------------------------------------------------
+
+/** The UTC offset (in minutes) Europe/Zurich is at for a given instant, DST included. */
+function zurichOffsetMinutesAt(utcMs: number): number {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Zurich",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(new Date(utcMs)).map((p) => [p.type, p.value]));
+  const asIfUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return Math.round((asIfUtc - utcMs) / 60000);
+}
+
+/** Converts a Europe/Zurich local wall-clock date+time into an RFC 5545 UTC timestamp. */
+function toIcsUtc(date: string, time: string): string {
+  const [y, mo, d] = date.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  const naiveUtcMs = Date.UTC(y, mo - 1, d, h, mi, 0);
+  const offsetMin = zurichOffsetMinutesAt(naiveUtcMs);
+  const trueUtcMs = naiveUtcMs - offsetMin * 60000;
+  const dt = new Date(trueUtcMs);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}${pad(dt.getUTCSeconds())}Z`;
+}
+
+function nowIcsUtc(): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dt = new Date();
+  return `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}${pad(dt.getUTCSeconds())}Z`;
+}
+
+/** Escapes text per RFC 5545 §3.3.11 and folds lines over 75 octets. */
+function icsText(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+function foldIcsLine(line: string): string {
+  if (line.length <= 75) return line;
+  let out = line.slice(0, 75);
+  let rest = line.slice(75);
+  while (rest.length > 0) {
+    out += "\r\n " + rest.slice(0, 74);
+    rest = rest.slice(74);
+  }
+  return out;
+}
+
+function buildIcs(opts: {
+  bookingId: string;
+  method: "REQUEST" | "CANCEL";
+  status: "TENTATIVE" | "CONFIRMED" | "CANCELLED";
+  title: string;
+  location: string;
+  description: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  organizerEmail: string;
+  attendeeEmail: string;
+  attendeeName: string | null;
+}): string {
+  const uid = `booking-${opts.bookingId}@uzh-rooms.demo`;
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "PRODID:-//UZH Rooms//Booking Demo//EN",
+    "VERSION:2.0",
+    "CALSCALE:GREGORIAN",
+    `METHOD:${opts.method}`,
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${nowIcsUtc()}`,
+    `DTSTART:${toIcsUtc(opts.date, opts.startTime)}`,
+    `DTEND:${toIcsUtc(opts.date, opts.endTime)}`,
+    `SUMMARY:${icsText(opts.title)}`,
+    `LOCATION:${icsText(opts.location)}`,
+    `DESCRIPTION:${icsText(opts.description)}`,
+    `STATUS:${opts.status}`,
+    `SEQUENCE:${opts.method === "CANCEL" ? 1 : 0}`,
+    `ORGANIZER;CN=UZH Rooms:mailto:${opts.organizerEmail}`,
+    `ATTENDEE;CN=${icsText(opts.attendeeName ?? opts.attendeeEmail)};RSVP=FALSE:mailto:${opts.attendeeEmail}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return lines.map(foldIcsLine).join("\r\n") + "\r\n";
 }
 
 // ---------------------------------------------------------------------
@@ -167,16 +298,36 @@ function yesNo(value: boolean): string {
   return value ? "Yes" : "No";
 }
 
+function sectionLabel(text: string): string {
+  return `<p style="margin:20px 0 6px;font-size:11px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:${UZH_BLUE};">${text}</p>`;
+}
+
+function formatAddress(institute: string, street: string, zip: string, city: string): string {
+  return [institute, street, [zip, city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+}
+
 /**
  * Renders the "official Campus Culture event request" block — organizer
  * details, event type, audience, catering, etc. — plus the Code of
  * Conduct / submission-info links, whenever a booking carries them (see
  * EventRequestFields in the app; ordinary bookings have none of this).
+ * Grouped into the same sections as the form itself (Event / Organizer /
+ * Billing / Contact / Participants / Comments) so a long, dense set of
+ * fields still reads at a glance.
  */
 function eventRequestHtml(details: EventRequestDetails): string {
-  const organizerAddress = [details.organizerInstitute, details.organizerStreet, [details.organizerZip, details.organizerCity].filter(Boolean).join(" ")]
-    .filter(Boolean)
-    .join(", ");
+  const organizerAddress = formatAddress(
+    details.organizerInstitute,
+    details.organizerStreet,
+    details.organizerZip,
+    details.organizerCity,
+  );
+  const billingAddress = formatAddress(
+    details.billingInstitute,
+    details.billingStreet,
+    details.billingZip,
+    details.billingCity,
+  );
   const contact = [
     [details.contactFirstName, details.contactName].filter(Boolean).join(" "),
     details.contactEmail,
@@ -185,34 +336,60 @@ function eventRequestHtml(details: EventRequestDetails): string {
     .filter(Boolean)
     .join(" · ");
 
-  const rows = [
+  const eventRows = [
     details.eventType ? detailRow("Event type", details.eventType) : "",
     detailRow("Interval", details.interval === "recurring" ? "Recurring event" : "One-time event"),
     details.speakers ? detailRow("Speakers", details.speakers) : "",
-    organizerAddress ? detailRow("Organizer", organizerAddress) : "",
-    contact ? detailRow("Contact", contact) : "",
+    detailRow("Recording / live streaming requested", yesNo(details.recordingRequested)),
+  ].join("");
+
+  const participantRows = [
     detailRow("Attending", PARTICIPANTS_LABEL[details.participants]),
     detailRow("Freely accessible", yesNo(details.freelyAccessible)),
     detailRow("Participation fee", yesNo(details.participationFee)),
     detailRow("Controversial / high-profile speakers", yesNo(details.controversialSpeakers)),
     detailRow("Catering (aperitif / coffee / food)", yesNo(details.catering)),
-    detailRow("Recording / live streaming requested", yesNo(details.recordingRequested)),
   ].join("");
 
+  const table = (rows: string) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${CARD_BG};border-radius:12px;padding:4px 20px;">${rows}</table>`;
+
   return `
-    <div style="margin-top:24px;">
-      <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;color:${MUTED};">
-        Event request details
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid ${BORDER};">
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;color:${MUTED};">
+        Official event request
       </p>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${CARD_BG};border-radius:12px;padding:4px 20px;">
-        ${rows}
-      </table>
+      <p style="margin:0;font-size:12px;line-height:1.6;color:${MUTED};">
+        Submitted with this booking, mirroring Campus Culture's room request form.
+      </p>
+
+      ${sectionLabel("Event")}
+      ${table(eventRows)}
+
       ${
-        details.comments
-          ? `<p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:${INK};"><strong>Comments:</strong> ${details.comments}</p>`
+        organizerAddress
+          ? `${sectionLabel("Address of organizer")}${table(detailRow("Organizer", organizerAddress))}`
           : ""
       }
-      <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${MUTED};">
+
+      ${
+        billingAddress
+          ? `${sectionLabel("Billing address")}${table(detailRow("Billing", billingAddress))}`
+          : ""
+      }
+
+      ${contact ? `${sectionLabel("Contact person")}${table(detailRow("Contact", contact))}` : ""}
+
+      ${sectionLabel("Participants")}
+      ${table(participantRows)}
+
+      ${
+        details.comments
+          ? `${sectionLabel("Comments")}<p style="margin:0;font-size:13px;line-height:1.6;color:${INK};">${details.comments}</p>`
+          : ""
+      }
+
+      <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:${MUTED};">
         By submitting this request you agreed to the
         <a href="${EVENT_REQUEST_LINKS.codeOfConduct}" style="color:${UZH_BLUE};">Code of Conduct</a>
         and
@@ -228,11 +405,13 @@ function renderEmail(opts: {
   buildingName: string;
   when: string;
   attendees: number | null;
+  purpose?: string | null;
   detailsExtra?: string;
   eventRequest?: EventRequestDetails | null;
 }): string {
-  const { copy, roomName, buildingName, when, attendees, detailsExtra, eventRequest } = opts;
+  const { copy, roomName, buildingName, when, attendees, purpose, detailsExtra, eventRequest } = opts;
   const rows = [
+    purpose ? detailRow("What it's for", purpose) : "",
     detailRow("Room", roomName),
     detailRow("Location", buildingName),
     detailRow("When", when),
@@ -309,6 +488,7 @@ function templateFor(
     buildingName: string;
     when: string;
     attendees: number | null;
+    purpose: string | null;
     note: string | null;
     previousWhen?: string;
     eventRequest: EventRequestDetails | null;
@@ -319,13 +499,15 @@ function templateFor(
     buildingName: ctx.buildingName,
     when: ctx.when,
     attendees: ctx.attendees,
+    purpose: ctx.purpose,
     eventRequest: ctx.eventRequest,
   };
+  const titledRoomName = ctx.purpose ? `${ctx.purpose} (${ctx.roomName})` : ctx.roomName;
 
   switch (event) {
     case "requested":
       return {
-        subject: `Booking request received — ${ctx.roomName}`,
+        subject: `Booking request received — ${titledRoomName}`,
         html: renderEmail({
           ...base,
           copy: {
@@ -341,7 +523,7 @@ function templateFor(
       };
     case "confirmed":
       return {
-        subject: `Booking confirmed — ${ctx.roomName}`,
+        subject: `Booking confirmed — ${titledRoomName}`,
         html: renderEmail({
           ...base,
           copy: {
@@ -357,7 +539,7 @@ function templateFor(
       };
     case "rejected":
       return {
-        subject: `Booking request declined — ${ctx.roomName}`,
+        subject: `Booking request declined — ${titledRoomName}`,
         html: renderEmail({
           ...base,
           copy: {
@@ -378,7 +560,7 @@ function templateFor(
       };
     case "cancelled":
       return {
-        subject: `Booking cancelled — ${ctx.roomName}`,
+        subject: `Booking cancelled — ${titledRoomName}`,
         html: renderEmail({
           ...base,
           copy: {
@@ -394,7 +576,7 @@ function templateFor(
       };
     case "changed":
       return {
-        subject: `Booking rescheduled — ${ctx.roomName}`,
+        subject: `Booking rescheduled — ${titledRoomName}`,
         html: renderEmail({
           ...base,
           copy: {
@@ -457,8 +639,8 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   const [{ data: room }, { data: profile }] = await Promise.all([
-    supabase.from("rooms").select("name, buildings ( name )").eq("id", booking.room_id).single(),
-    supabase.from("profiles").select("email").eq("id", booking.user_id).single(),
+    supabase.from("rooms").select("name, buildings ( name, address )").eq("id", booking.room_id).single(),
+    supabase.from("profiles").select("email, full_name").eq("id", booking.user_id).single(),
   ]);
 
   if (!room || !profile) {
@@ -467,12 +649,15 @@ Deno.serve(async (req) => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buildingName = (room as any).buildings?.name ?? "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const buildingAddress = (room as any).buildings?.address ?? "";
 
   const { subject, html } = templateFor(event, {
     roomName: room.name,
     buildingName,
     when: formatWhen(booking.date, booking.start_time, booking.end_time),
     attendees: booking.attendees,
+    purpose: booking.purpose,
     note: booking.decision_note,
     eventRequest: booking.event_request,
     previousWhen:
@@ -481,7 +666,37 @@ Deno.serve(async (req) => {
         : undefined,
   });
 
-  const { error } = await sendEmail(profile.email, subject, html);
+  // A calendar file only makes sense once there's something to represent.
+  // "requested" (still pending) and "rejected" (never confirmed) never had
+  // a slot worth calendaring in the first place, so neither gets one — a
+  // CANCEL for an event that was never sent would be a no-op at best and
+  // a confusing notification at worst. Every other event carries one:
+  // "cancelled" specifically needs METHOD:CANCEL to remove the earlier
+  // confirmed invite from the recipient's calendar.
+  const isCancel = event === "cancelled";
+  const ics: IcsAttachment | undefined =
+    event === "requested" || event === "rejected"
+      ? undefined
+      : {
+          filename: "booking.ics",
+          method: isCancel ? "CANCEL" : "REQUEST",
+          content: buildIcs({
+            bookingId: booking.id,
+            method: isCancel ? "CANCEL" : "REQUEST",
+            status: isCancel ? "CANCELLED" : "CONFIRMED",
+            title: booking.purpose || `Room booking — ${room.name}`,
+            location: [room.name, buildingName, buildingAddress].filter(Boolean).join(", "),
+            description: `Booked via UZH Rooms.${booking.attendees ? ` ${booking.attendees} attendees.` : ""}`,
+            date: booking.date,
+            startTime: booking.start_time,
+            endTime: booking.end_time,
+            organizerEmail: GMAIL_USER ?? "no-reply@uzh-rooms.demo",
+            attendeeEmail: profile.email,
+            attendeeName: profile.full_name,
+          }),
+        };
+
+  const { error } = await sendEmail(profile.email, subject, html, ics);
 
   await supabase.from("email_log").insert({
     booking_id: booking.id,
