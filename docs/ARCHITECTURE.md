@@ -79,10 +79,15 @@ worth adding real tests before this goes further than a demo).
 ## 3. Email
 
 `bookings` insert/update → Postgres trigger (`notify_booking_email`, using `pg_net`) → Edge
-Function (`supabase/functions/send-booking-email`) → [Resend](https://resend.com) → booker's
-inbox, with every attempt logged to `email_log` regardless of success. The trigger reads its
-target URL/key from Supabase Vault rather than hardcoding them, and no-ops quietly if they're not
-configured yet (so booking still works before email is wired up).
+Function (`supabase/functions/send-booking-email`) → Gmail SMTP relay (via
+[Nodemailer](https://nodemailer.com)) → booker's inbox, with every attempt logged to `email_log`
+regardless of success. The trigger reads its target URL/key from Supabase Vault rather than
+hardcoding them, and no-ops quietly if they're not configured yet (so booking still works before
+email is wired up). This started on Resend, but Resend needs a verified custom sending domain to
+deliver to arbitrary recipients — not something this project has (or could get for a `@gmail.com`
+address, since Google owns that domain) — so it now sends straight through Gmail's own SMTP relay
+instead. See [`README.md`](../README.md#email-notifications) for how to get it a set of
+credentials.
 
 ## 4. Why this survives a move to Microsoft infrastructure
 
@@ -96,7 +101,7 @@ every seam below is a real seam today, not aspirational:
 | Row-level security | Postgres RLS + `current_user_role()` | Azure SQL Row-Level Security (`CREATE SECURITY POLICY`), or move the same checks into an API layer | The *rules themselves* (who can do what) are already written down precisely in `20260916000004_rls_policies.sql` — that's the spec to port, whichever engine ends up enforcing it. |
 | App code's DB access | `src/lib/data/*.ts` — the only files that import the Supabase client | Same files, swapped to Prisma/Drizzle + Azure SQL, or MS Graph | Every component and Server Action calls `getRooms()`, `createBookingAction()`, etc. — none of them import `@supabase/supabase-js` directly. Only `src/lib/data/*` and `src/lib/supabase/*` need to change. |
 | Auth | Supabase Auth (email/password) | Entra ID / UZH SSO | Two-step path: Supabase Auth supports bridging to an OIDC/SAML provider first (point it at Entra ID without touching app code), then swap `src/lib/supabase/{client,server,middleware}.ts` for `@azure/msal-node` (or whatever UZH IT standardizes on) when ready to drop Supabase entirely. `profiles.id` already *is* the identity join key, so this doesn't touch the data model. |
-| Email | Resend, isolated to `sendEmail()` in the Edge Function | Microsoft Graph API / SMTP relay | One function body changes. The trigger, the templates, and `email_log` don't. |
+| Email | Gmail SMTP relay (via Nodemailer), isolated to `sendEmail()` in the Edge Function | Microsoft Graph API / SMTP relay | One function body changes. The trigger, the templates, and `email_log` don't. |
 | Hosting | Vercel | Azure App Service or Static Web Apps | Next.js runs on both unmodified — this is an infra config change, not a code change. |
 | File/image storage | Local `public/images/` (static assets, not Supabase Storage) | Azure Blob Storage | Not currently using Supabase Storage at all, specifically to avoid adding a migration step here. If room-image uploads get added later, route them through Blob Storage (or through Supabase Storage behind the same kind of thin wrapper as `src/lib/data/*`) rather than direct client calls. |
 

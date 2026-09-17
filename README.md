@@ -98,37 +98,43 @@ bootstrap query outside of that `set_config` line).
 `supabase/functions/send-booking-email` sends a branded HTML email (UZH-blue header, status pill,
 booking details card) for every notifiable event: request received, confirmed, rejected,
 cancelled, and rescheduled/resubmitted. DB trigger
-(`supabase/migrations/20260916000007_email_webhook.sql`) → Edge Function → [Resend](https://resend.com).
+(`supabase/migrations/20260916000007_email_webhook.sql`) → Edge Function → Gmail SMTP relay (via
+[Nodemailer](https://nodemailer.com)).
 
-**Current status: fully wired and verified working, missing only the Resend API key.** The Vault
-secrets that let the DB trigger call the function are set, the function is deployed, and
+**Current status: fully wired and verified working, missing only the Gmail credentials.** The
+Vault secrets that let the DB trigger call the function are set, the function is deployed, and
 `service_role` has the table grants it needs (see `20260916000013_service_role_privileges.sql` —
 hosted Supabase doesn't auto-grant these to `service_role` any more than it does to
 `anon`/`authenticated`). Editing/approving/rejecting a booking right now correctly logs to
-`email_log` with `status: 'failed'` and `error: 'RESEND_API_KEY not configured'` — that's the one
-remaining step:
+`email_log` with `status: 'failed'` and `error: 'GMAIL_USER/GMAIL_APP_PASSWORD not configured'` —
+that's the one remaining step.
 
-1. Create a Resend account and API key (a "UZH Rooms — Supabase Edge Function" sending-access key
-   already exists if you're picking this repo back up — check Resend's API Keys page, or create a
-   new one).
+This used to run on [Resend](https://resend.com), but Resend requires a verified custom sending
+domain to deliver to arbitrary recipients, and this project has no domain of its own — a plain
+`@gmail.com` address can never be verified as one either (Google owns that domain). Sending
+straight through Gmail's own SMTP relay sidesteps the whole problem: no domain needed, any
+recipient works.
+
+1. Get a Gmail App Password for the sending account (**not** the account's normal login password —
+   Google requires a separate 16-character app password for SMTP):
+   - Turn on 2-Step Verification on the Google account, if it isn't already
+     ([myaccount.google.com/security](https://myaccount.google.com/security)).
+   - Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create
+     one (any name, e.g. "UZH Rooms"), and copy the 16-character password it gives you.
 2. Set it as an Edge Function secret — **this can't be done from the SQL editor or via MCP tools**,
-   it's a Deno environment variable, not a database value. Easiest path is the Supabase Dashboard:
+   it's a Deno environment variable, not a database value, and Claude/an agent should never be
+   asked to type a password into a field on your behalf. Easiest path is the Supabase Dashboard:
    Edge Functions → `send-booking-email` → Secrets, and add:
    ```
-   RESEND_API_KEY=re_...
-   RESEND_FROM_EMAIL=UZH Rooms <onboarding@resend.dev>
+   GMAIL_USER=you@gmail.com
+   GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
    ```
-   Or via CLI, if you're logged into the account that owns this project:
+   (`SMTP_FROM_EMAIL` is optional — defaults to `UZH Rooms <GMAIL_USER>`.) Or via CLI, if you're
+   logged into the account that owns this project:
    ```bash
    npx supabase link --project-ref qwxvsdmxrxbgyhxvgpvg
-   npx supabase secrets set RESEND_API_KEY=re_... RESEND_FROM_EMAIL="UZH Rooms <onboarding@resend.dev>"
+   npx supabase secrets set GMAIL_USER=you@gmail.com GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
    ```
-
-**Sandbox limitation worth knowing:** without a verified sending domain, Resend only delivers to
-the email address that owns the Resend account itself — not arbitrary recipients, and definitely
-not the fake `@uzh.ch` demo addresses. To see real delivery, either book as an account whose email
-matches your Resend login, or verify a real domain you own (`create-domain` via the Resend MCP
-connector, then add the DNS records it gives you) for unrestricted sending.
 
 Check `email_log` (readable by Admin+) to see what was attempted and to whom, and
 `supabase/functions/send-booking-email/index.ts` for all five templates — rendered previews were

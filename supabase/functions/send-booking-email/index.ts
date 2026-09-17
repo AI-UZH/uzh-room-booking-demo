@@ -9,14 +9,18 @@
 //
 // Deploy with:
 //   npx supabase functions deploy send-booking-email
-// and set its secrets:
-//   npx supabase secrets set RESEND_API_KEY=... RESEND_FROM_EMAIL="UZH Rooms <you@yourdomain>"
+// and set its secrets (Gmail SMTP relay — see "Getting a Gmail app
+// password" in README.md for how GMAIL_APP_PASSWORD is generated):
+//   npx supabase secrets set GMAIL_USER=you@gmail.com GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
 //
+// Resend was the original backend here but needs a verified custom
+// sending domain — a plain @gmail.com address can never be one (Google
+// owns that domain), so this sends over Gmail's SMTP relay instead.
 // Email sending is deliberately isolated to this one function — swapping
-// Resend for Microsoft Graph/SMTP later (per the Microsoft-migration plan
-// in README.md) means editing only `sendEmail()` below.
+// providers again later means editing only `sendEmail()` below.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer@6.9.16";
 
 type BookingStatus = "pending" | "confirmed" | "rejected" | "cancelled";
 
@@ -84,27 +88,36 @@ interface BookingWebhookPayload {
   old_record: BookingRow | null;
 }
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") ?? "UZH Rooms <onboarding@resend.dev>";
+const GMAIL_USER = Deno.env.get("GMAIL_USER");
+const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
+const SMTP_FROM_EMAIL = Deno.env.get("SMTP_FROM_EMAIL") ?? `UZH Rooms <${GMAIL_USER ?? ""}>`;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Lazily constructed so a missing secret doesn't crash the function at
+// import time — sendEmail() below reports it as a normal, loggable error
+// instead (same behaviour as the old "RESEND_API_KEY not configured"
+// guard this replaced).
+const transporter =
+  GMAIL_USER && GMAIL_APP_PASSWORD
+    ? nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+      })
+    : null;
+
 async function sendEmail(to: string, subject: string, html: string): Promise<{ error?: string }> {
-  if (!RESEND_API_KEY) {
-    return { error: "RESEND_API_KEY not configured — skipping send (logged only)" };
+  if (!transporter) {
+    return { error: "GMAIL_USER/GMAIL_APP_PASSWORD not configured — skipping send (logged only)" };
   }
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from: RESEND_FROM_EMAIL, to, subject, html }),
-  });
-  if (!res.ok) {
-    return { error: `Resend API error: ${res.status} ${await res.text()}` };
+  try {
+    await transporter.sendMail({ from: SMTP_FROM_EMAIL, to, subject, html });
+    return {};
+  } catch (err) {
+    return { error: `Gmail SMTP error: ${err instanceof Error ? err.message : String(err)}` };
   }
-  return {};
 }
 
 // ---------------------------------------------------------------------
