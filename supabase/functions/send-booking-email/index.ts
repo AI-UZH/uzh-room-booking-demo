@@ -94,6 +94,12 @@ const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
 const SMTP_FROM_EMAIL = Deno.env.get("SMTP_FROM_EMAIL") ?? `UZH Rooms <${GMAIL_USER ?? ""}>`;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Where the "Edit or cancel booking" link in every email points — the
+// booker's own My Bookings page. Override with an APP_URL secret if the
+// app ever moves to a custom domain; not sensitive, so it's fine to have
+// a working default baked in.
+const APP_URL = (Deno.env.get("APP_URL") ?? "https://uzh-room-booking-demo-ai-uzhs-projects.vercel.app").replace(/\/$/, "");
+const MY_BOOKINGS_URL = `${APP_URL}/my-bookings`;
 
 // Lazily constructed so a missing secret doesn't crash the function at
 // import time — sendEmail() below reports it as a normal, loggable error
@@ -401,6 +407,7 @@ function eventRequestHtml(details: EventRequestDetails): string {
 
 function renderEmail(opts: {
   copy: EventCopy;
+  bookingId: string;
   roomName: string;
   buildingName: string;
   when: string;
@@ -409,7 +416,7 @@ function renderEmail(opts: {
   detailsExtra?: string;
   eventRequest?: EventRequestDetails | null;
 }): string {
-  const { copy, roomName, buildingName, when, attendees, purpose, detailsExtra, eventRequest } = opts;
+  const { copy, bookingId, roomName, buildingName, when, attendees, purpose, detailsExtra, eventRequest } = opts;
   const rows = [
     purpose ? detailRow("What it's for", purpose) : "",
     detailRow("Room", roomName),
@@ -417,6 +424,7 @@ function renderEmail(opts: {
     detailRow("When", when),
     attendees ? detailRow("Attendees", String(attendees)) : "",
     detailsExtra ?? "",
+    detailRow("Booking reference", bookingId.slice(0, 8).toUpperCase()),
   ].join("");
 
   return `<!doctype html>
@@ -449,17 +457,20 @@ function renderEmail(opts: {
                 <h1 style="margin:16px 0 8px;font-size:21px;line-height:1.3;color:${INK};">
                   ${copy.heading}
                 </h1>
-                <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:${MUTED};">
+                <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:${MUTED};">
                   ${copy.intro}
                 </p>
+                <a href="${MY_BOOKINGS_URL}" style="display:inline-block;margin:0 0 24px;padding:11px 22px;border-radius:8px;background:${UZH_BLUE};color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;">
+                  Edit or cancel booking
+                </a>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${CARD_BG};border-radius:12px;padding:4px 20px;">
                   ${rows}
                 </table>
                 ${copy.extraHtml ?? ""}
                 ${eventRequest ? eventRequestHtml(eventRequest) : ""}
-                <p style="margin:28px 0 0;font-size:12px;line-height:1.6;color:${MUTED};">
-                  Manage this booking any time from the
-                  <span style="color:${copy.accent};font-weight:600;">UZH Rooms</span> dashboard.
+                <p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:${MUTED};">
+                  The details above are a snapshot as of this email — to change the date, time, or
+                  anything else, use the button above rather than replying here.
                 </p>
               </td>
             </tr>
@@ -467,7 +478,9 @@ function renderEmail(opts: {
               <td style="padding:20px 32px;border-top:1px solid ${BORDER};">
                 <p style="margin:0;font-size:11px;line-height:1.6;color:#9aa0ac;">
                   This is a non-official UZH Rooms demo. If you weren't expecting this email, you
-                  can ignore it. Sent by an automated Supabase Edge Function — do not reply.
+                  can ignore it. Sent by an automated Supabase Edge Function — do not reply. Manage
+                  your bookings any time at
+                  <a href="${MY_BOOKINGS_URL}" style="color:${UZH_BLUE};">${MY_BOOKINGS_URL.replace(/^https?:\/\//, "")}</a>.
                 </p>
               </td>
             </tr>
@@ -484,6 +497,7 @@ type EventType = "requested" | "confirmed" | "rejected" | "cancelled" | "changed
 function templateFor(
   event: EventType,
   ctx: {
+    bookingId: string;
     roomName: string;
     buildingName: string;
     when: string;
@@ -495,6 +509,7 @@ function templateFor(
   },
 ): { subject: string; html: string } {
   const base = {
+    bookingId: ctx.bookingId,
     roomName: ctx.roomName,
     buildingName: ctx.buildingName,
     when: ctx.when,
@@ -653,6 +668,7 @@ Deno.serve(async (req) => {
   const buildingAddress = (room as any).buildings?.address ?? "";
 
   const { subject, html } = templateFor(event, {
+    bookingId: booking.id,
     roomName: room.name,
     buildingName,
     when: formatWhen(booking.date, booking.start_time, booking.end_time),
