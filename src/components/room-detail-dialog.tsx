@@ -15,6 +15,8 @@ import {
   CalendarIcon,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   LogIn,
   Mail,
@@ -49,6 +51,7 @@ import { TIME_SLOTS, TIME_BOUNDARIES, nextBoundary, dateKey } from "@/lib/schedu
 import { createBookingAction } from "@/actions/booking-actions";
 import { submitEnquiryAction } from "@/actions/enquiry-actions";
 import { canApprove } from "@/lib/roles";
+import { getRoomGallery } from "@/lib/room-gallery";
 import { EventRequestFields } from "@/components/event-request-fields";
 import {
   DEFAULT_EVENT_REQUEST,
@@ -171,6 +174,11 @@ function RoomDetailDialogBody({
     };
   });
   const [visualMode, setVisualMode] = useState<"photo" | number>("photo");
+  const gallery = getRoomGallery(room);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const currentPhoto = gallery[photoIndex] ?? gallery[0];
+  const showPhoto = (delta: number) =>
+    setPhotoIndex((i) => (i + delta + gallery.length) % gallery.length);
   const [isBooking, setIsBooking] = useState(false);
   const [booked, setBooked] = useState<"confirmed" | "pending" | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -278,18 +286,65 @@ function RoomDetailDialogBody({
           {visualMode === "photo" ? (
             <>
               <Image
-                src={room.image}
-                alt={room.imageAlt}
+                key={currentPhoto.src}
+                src={currentPhoto.src}
+                alt={currentPhoto.alt}
                 fill
                 sizes="(min-width: 640px) 768px, 100vw"
                 className="object-cover"
                 priority
               />
+              {gallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => showPhoto(-1)}
+                    aria-label="Previous photo"
+                    className="absolute left-3 top-1/2 z-10 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-foreground shadow-md transition-colors hover:bg-white"
+                  >
+                    <ChevronLeft className="size-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => showPhoto(1)}
+                    aria-label="Next photo"
+                    className="absolute right-3 top-1/2 z-10 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-foreground shadow-md transition-colors hover:bg-white"
+                  >
+                    <ChevronRight className="size-5" />
+                  </button>
+                  <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-10">
+                    <p className="max-w-[70%] text-xs leading-snug text-white" aria-live="polite">
+                      {photoIndex > 0 ? currentPhoto.alt : ""}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      {gallery.map((g, i) => (
+                        <button
+                          key={g.src}
+                          type="button"
+                          onClick={() => setPhotoIndex(i)}
+                          aria-label={`Show photo ${i + 1} of ${gallery.length}`}
+                          aria-current={i === photoIndex}
+                          className={cn(
+                            "h-1.5 rounded-full transition-all",
+                            i === photoIndex ? "w-5 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80",
+                          )}
+                        />
+                      ))}
+                      <span className="ml-2 text-[11px] text-white/80">
+                        {photoIndex + 1} / {gallery.length}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
               {room.visual3dUrls.length > 0 && (
                 <Button
                   size="sm"
                   onClick={() => setVisualMode(0)}
-                  className="absolute bottom-3 right-3 gap-1.5 bg-white/95 text-foreground shadow-md hover:bg-white"
+                  className={cn(
+                    "absolute right-3 gap-1.5 bg-white/95 text-foreground shadow-md hover:bg-white",
+                    gallery.length > 1 ? "bottom-14" : "bottom-3",
+                  )}
                 >
                   <Box className="size-4" />
                   View 3D Room Visual
