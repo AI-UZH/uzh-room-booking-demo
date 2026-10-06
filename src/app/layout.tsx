@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Source_Sans_3, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { DemoOverlays } from "@/components/demo-overlays";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/data/profile";
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -19,7 +22,17 @@ export const metadata: Metadata = {
     "A modern, unified room booking experience for the University of Zurich — combining event room discovery, 3D visuals, accessibility information, and one-click booking.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+async function isSuperAdminViewer(): Promise<boolean> {
+  try {
+    const profile = await getCurrentProfile(await createClient());
+    return profile?.role === "super_admin";
+  } catch {
+    return false;
+  }
+}
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const isSuperAdmin = await isSuperAdminViewer();
   return (
     <html
       lang="en"
@@ -27,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
+        <DemoOverlays isSuperAdmin={isSuperAdmin} />
         <Toaster position="bottom-right" />
       </body>
     </html>

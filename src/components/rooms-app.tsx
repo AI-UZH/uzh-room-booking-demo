@@ -5,13 +5,19 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { SearchX } from "lucide-react";
 import { Header } from "@/components/header";
-import { FiltersPanel, type CapacityFilter, type RoomView } from "@/components/filters-panel";
+import { FiltersPanel, type RoomView } from "@/components/filters-panel";
+import {
+  ANY_CAPACITY,
+  matchesCapacityRange,
+  type CapacityRange,
+} from "@/components/capacity-range-filter";
+import { sortRooms, type RoomSort } from "@/components/room-sort";
 import { RoomCard } from "@/components/room-card";
 import { RoomListItem } from "@/components/room-list-item";
 import { RoomDetailDialog } from "@/components/room-detail-dialog";
 import { CalendarView } from "@/components/calendar-view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { capacityBucket, type Building, type Room, type RoomType } from "@/lib/rooms";
+import type { Building, Room, RoomType } from "@/lib/rooms";
 import { dateKey, getRoomAvailability } from "@/lib/schedule";
 import {
   DEFAULT_ACCESSIBILITY_FILTER,
@@ -32,14 +38,13 @@ interface RoomsAppProps {
 
 export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
   const router = useRouter();
-  const rooms = initialRooms;
   const isExternal = !profile;
 
-  const [capacity, setCapacity] = useState<CapacityFilter>("all");
+  const [capacityRange, setCapacityRange] = useState<CapacityRange>(ANY_CAPACITY);
+  const [sort, setSort] = useState<RoomSort>("name");
   const [building, setBuilding] = useState<Building | "all">("all");
   const [roomTypeSlug, setRoomTypeSlug] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [minAttendees, setMinAttendees] = useState("");
   const [browseDate, setBrowseDate] = useState<Date>(new Date());
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [accessibility, setAccessibility] = useState<AccessibilityFilter>(
@@ -51,6 +56,12 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [prefill, setPrefill] = useState<{ date?: Date; start?: string; end?: string }>({});
   const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
+
+  const rooms = useMemo(() => sortRooms(initialRooms, sort), [initialRooms, sort]);
+  const capacities = useMemo(
+    () => [...new Set(initialRooms.map((r) => r.capacity))].sort((a, b) => a - b),
+    [initialRooms],
+  );
 
   const browseDateKey = dateKey(browseDate);
 
@@ -89,7 +100,7 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
 
   const filteredRooms = useMemo(() => {
     return rooms.filter((room) => {
-      if (capacity !== "all" && capacityBucket(room.capacity) !== capacity) return false;
+      if (!matchesCapacityRange(room.capacity, capacityRange)) return false;
       if (building !== "all" && room.building !== building) return false;
       if (roomTypeSlug !== "all" && room.roomType?.slug !== roomTypeSlug) return false;
       if (!matchesAccessibilityFilter(room, accessibility)) return false;
@@ -98,10 +109,6 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
         onlyAvailable &&
         !getRoomAvailability(busySlots, room.id, browseDateKey).hasAvailability
       ) {
-        return false;
-      }
-      const exact = Number(minAttendees);
-      if (minAttendees.trim() && Number.isFinite(exact) && exact > 0 && room.capacity < exact) {
         return false;
       }
       if (search.trim()) {
@@ -118,12 +125,11 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
     });
   }, [
     rooms,
-    capacity,
+    capacityRange,
     building,
     roomTypeSlug,
     accessibility,
     search,
-    minAttendees,
     onlyAvailable,
     browseDateKey,
     isExternal,
@@ -199,8 +205,11 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
 
           <TabsContent value="grid" className="mt-0">
             <FiltersPanel
-              capacity={capacity}
-              onCapacityChange={setCapacity}
+              capacities={capacities}
+              capacityRange={capacityRange}
+              onCapacityRangeChange={setCapacityRange}
+              sort={sort}
+              onSortChange={setSort}
               building={building}
               onBuildingChange={setBuilding}
               roomTypes={roomTypes}
@@ -208,8 +217,6 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
               onRoomTypeChange={setRoomTypeSlug}
               search={search}
               onSearchChange={setSearch}
-              minAttendees={minAttendees}
-              onMinAttendeesChange={setMinAttendees}
               date={browseDate}
               onDateChange={setBrowseDate}
               onlyAvailable={onlyAvailable}
@@ -270,8 +277,11 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
                 roomTypes={roomTypes}
                 roomTypeSlug={roomTypeSlug}
                 onRoomTypeChange={setRoomTypeSlug}
-                capacity={capacity}
-                onCapacityChange={setCapacity}
+                capacities={capacities}
+                capacityRange={capacityRange}
+                onCapacityRangeChange={setCapacityRange}
+                sort={sort}
+                onSortChange={setSort}
               />
             </TabsContent>
           )}

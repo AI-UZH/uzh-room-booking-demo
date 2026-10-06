@@ -9,7 +9,6 @@ import {
   LayoutGrid,
   List as ListIcon,
   Search,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -19,32 +18,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { FilterPillGroup } from "@/components/filter-pill-group";
+import { CapacityRangeFilter, type CapacityRange } from "@/components/capacity-range-filter";
+import { RoomSortSelect, type RoomSort } from "@/components/room-sort";
 import {
   isAccessibilityFilterActive,
   type AccessibilityFilter,
 } from "@/lib/accessibility-filter";
 import type { Building, RoomType } from "@/lib/rooms";
 
-export type CapacityFilter = "all" | "lt50" | "mid" | "gt100";
 export type RoomView = "grid" | "list";
 
-const capacityOptions: { value: CapacityFilter; label: string }[] = [
-  { value: "all", label: "Any capacity" },
-  { value: "lt50", label: "< 50" },
-  { value: "mid", label: "50 – 100" },
-  { value: "gt100", label: "> 100" },
-];
-
 interface FiltersPanelProps {
-  capacity: CapacityFilter;
-  onCapacityChange: (value: CapacityFilter) => void;
+  capacities: number[];
+  capacityRange: CapacityRange;
+  onCapacityRangeChange: (value: CapacityRange) => void;
+  sort: RoomSort;
+  onSortChange: (value: RoomSort) => void;
   building: Building | "all";
   onBuildingChange: (value: Building | "all") => void;
   roomTypes: RoomType[];
@@ -52,8 +47,6 @@ interface FiltersPanelProps {
   onRoomTypeChange: (value: string) => void;
   search: string;
   onSearchChange: (value: string) => void;
-  minAttendees: string;
-  onMinAttendeesChange: (value: string) => void;
   date: Date;
   onDateChange: (value: Date) => void;
   onlyAvailable: boolean;
@@ -68,8 +61,11 @@ interface FiltersPanelProps {
 }
 
 export function FiltersPanel({
-  capacity,
-  onCapacityChange,
+  capacities,
+  capacityRange,
+  onCapacityRangeChange,
+  sort,
+  onSortChange,
   building,
   onBuildingChange,
   roomTypes,
@@ -77,8 +73,6 @@ export function FiltersPanel({
   onRoomTypeChange,
   search,
   onSearchChange,
-  minAttendees,
-  onMinAttendeesChange,
   date,
   onDateChange,
   onlyAvailable,
@@ -106,19 +100,6 @@ export function FiltersPanel({
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-44">
-            <Users className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="number"
-              min={1}
-              inputMode="numeric"
-              value={minAttendees}
-              onChange={(e) => onMinAttendeesChange(e.target.value)}
-              placeholder="Exact # of attendees"
-              className="h-9 pl-9"
-            />
-          </div>
-
           <Select value={building} onValueChange={(v) => onBuildingChange(v as Building | "all")}>
             <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Location" />
@@ -165,11 +146,10 @@ export function FiltersPanel({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <FilterPillGroup
-            label="Capacity"
-            value={capacity}
-            onChange={(v) => onCapacityChange(v as CapacityFilter)}
-            options={capacityOptions}
+          <CapacityRangeFilter
+            capacities={capacities}
+            value={capacityRange}
+            onChange={onCapacityRangeChange}
           />
 
           {showAvailability && (
@@ -186,10 +166,11 @@ export function FiltersPanel({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted-foreground">
             {resultCount} {resultCount === 1 ? "room" : "rooms"} found
           </p>
+          <RoomSortSelect value={sort} onChange={onSortChange} />
           <div className="flex overflow-hidden rounded-md border border-input">
             <button
               type="button"

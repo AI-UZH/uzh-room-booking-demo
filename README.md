@@ -156,6 +156,14 @@ rendered previews were visually verified during development.
 
 ## What's here
 
+- **Demo guide & feedback wall** — a first-visit guide explains what's real and what's deliberately
+  simulated in this demo (e.g. no UZH Microsoft SSO), reopenable from the header. A floating
+  *Feedback* tab on the right edge opens a public wall where anyone, logged in or not, can leave
+  ideas/problems/questions; a super admin can reply and delete (`feedback` table,
+  `20260916000018_feedback.sql`).
+- **Capacity range + sorting** — min/max inputs with a two-thumb slider that snaps to real room
+  sizes, quick presets, and a "hide rooms over N seats" suggestion; sort by name or capacity. Shared
+  between Browse and Calendar.
 - **Room discovery** — 122 real UZH rooms across 15 buildings, filterable by search, room type
   (Lecture Hall, Seminar Room, Meeting Room, Auditorium, Event & Reception Space, Dining &
   Catering — 6 plain-English categories, consolidated from an original 11), capacity, location,

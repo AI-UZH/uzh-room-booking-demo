@@ -11,16 +11,14 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { TIME_SLOTS, dateKey, isSlotBusy, getRoomAvailability } from "@/lib/schedule";
 import { FilterPillGroup } from "@/components/filter-pill-group";
-import { capacityBucket, type Room, type RoomType } from "@/lib/rooms";
-import type { CapacityFilter } from "@/components/filters-panel";
+import type { Room, RoomType } from "@/lib/rooms";
+import {
+  CapacityRangeFilter,
+  matchesCapacityRange,
+  type CapacityRange,
+} from "@/components/capacity-range-filter";
+import { RoomSortSelect, type RoomSort } from "@/components/room-sort";
 import type { BusySlot } from "@/lib/data/booking-types";
-
-const capacityOptions: { value: CapacityFilter; label: string }[] = [
-  { value: "all", label: "Any capacity" },
-  { value: "lt50", label: "< 50" },
-  { value: "mid", label: "50 – 100" },
-  { value: "gt100", label: "> 100" },
-];
 
 interface CalendarViewProps {
   rooms: Room[];
@@ -30,8 +28,11 @@ interface CalendarViewProps {
   roomTypes: RoomType[];
   roomTypeSlug: string;
   onRoomTypeChange: (value: string) => void;
-  capacity: CapacityFilter;
-  onCapacityChange: (value: CapacityFilter) => void;
+  capacities: number[];
+  capacityRange: CapacityRange;
+  onCapacityRangeChange: (value: CapacityRange) => void;
+  sort: RoomSort;
+  onSortChange: (value: RoomSort) => void;
 }
 
 export function CalendarView({
@@ -42,8 +43,11 @@ export function CalendarView({
   roomTypes,
   roomTypeSlug,
   onRoomTypeChange,
-  capacity,
-  onCapacityChange,
+  capacities,
+  capacityRange,
+  onCapacityRangeChange,
+  sort,
+  onSortChange,
 }: CalendarViewProps) {
   const [date, setDate] = useState<Date>(new Date());
   const [showAll, setShowAll] = useState(false);
@@ -52,10 +56,10 @@ export function CalendarView({
   const filteredRooms = useMemo(() => {
     return rooms.filter((room) => {
       if (roomTypeSlug !== "all" && room.roomType?.slug !== roomTypeSlug) return false;
-      if (capacity !== "all" && capacityBucket(room.capacity) !== capacity) return false;
+      if (!matchesCapacityRange(room.capacity, capacityRange)) return false;
       return true;
     });
-  }, [rooms, roomTypeSlug, capacity]);
+  }, [rooms, roomTypeSlug, capacityRange]);
 
   const visibleRooms = useMemo(() => {
     if (showAll) return filteredRooms;
@@ -122,7 +126,7 @@ export function CalendarView({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border pb-4">
         <FilterPillGroup
           label="Room type"
           value={roomTypeSlug}
@@ -132,12 +136,12 @@ export function CalendarView({
             ...roomTypes.map((rt) => ({ value: rt.slug, label: rt.name })),
           ]}
         />
-        <FilterPillGroup
-          label="Capacity"
-          value={capacity}
-          onChange={(v) => onCapacityChange(v as CapacityFilter)}
-          options={capacityOptions}
+        <CapacityRangeFilter
+          capacities={capacities}
+          value={capacityRange}
+          onChange={onCapacityRangeChange}
         />
+        <RoomSortSelect value={sort} onChange={onSortChange} />
       </div>
 
       {!showAll && (

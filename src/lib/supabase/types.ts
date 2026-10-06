@@ -206,6 +206,50 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          author_name: string | null
+          category: string
+          created_at: string
+          id: string
+          message: string
+          pinned: boolean
+          reply: string | null
+          replied_at: string | null
+          replied_by: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          message: string
+          pinned?: boolean
+          reply?: string | null
+          replied_at?: string | null
+          replied_by?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          message?: string
+          pinned?: boolean
+          reply?: string | null
+          replied_at?: string | null
+          replied_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_replied_by_fkey"
+            columns: ["replied_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -491,6 +535,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_feedback: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       get_busy_slots: {
         Args: { p_from: string; p_room_ids: string[]; p_to: string }
         Returns: Database["public"]["CompositeTypes"]["busy_slot"][]
@@ -499,6 +547,26 @@ export type Database = {
           to: "busy_slot"
           isOneToOne: false
           isSetofReturn: true
+        }
+      }
+      reply_to_feedback: {
+        Args: { p_id: string; p_reply: string }
+        Returns: {
+          author_name: string | null
+          category: string
+          created_at: string
+          id: string
+          message: string
+          pinned: boolean
+          reply: string | null
+          replied_at: string | null
+          replied_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "feedback"
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
       update_own_booking: {
