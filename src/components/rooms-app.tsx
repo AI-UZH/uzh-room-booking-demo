@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { SearchX } from "lucide-react";
 import { Header } from "@/components/header";
+import { SiteStats } from "@/components/site-stats";
 import { FiltersPanel, type RoomView } from "@/components/filters-panel";
 import {
   ANY_CAPACITY,
@@ -191,6 +192,7 @@ export function RoomsApp({ initialRooms, roomTypes, profile }: RoomsAppProps) {
               </span>
             </a>
           </div>
+          <SiteStats />
         </div>
       </section>
 

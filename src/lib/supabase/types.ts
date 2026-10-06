@@ -549,6 +549,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      record_visit: {
+        Args: { p_visitor_id?: string }
+        Returns: Json
+      }
       reply_to_feedback: {
         Args: { p_id: string; p_reply: string }
         Returns: {
